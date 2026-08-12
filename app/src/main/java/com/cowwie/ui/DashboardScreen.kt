@@ -129,7 +129,11 @@ fun DashboardScreen(interactive: Boolean, modifier: Modifier = Modifier) {
                 color = MaterialTheme.colorScheme.secondary,
             )
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(20.dp))
+
+            CowAvatar()
+
+            Spacer(Modifier.height(16.dp))
 
             Text(
                 text = aiSummary ?: localSummary,
@@ -137,6 +141,16 @@ fun DashboardScreen(interactive: Boolean, modifier: Modifier = Modifier) {
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.fillMaxWidth(),
             )
+
+            if (events.isEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = "No events found on this phone's calendar — check that your calendar account is synced (Settings → Passwords & accounts).",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
 
             Spacer(Modifier.height(24.dp))
 
