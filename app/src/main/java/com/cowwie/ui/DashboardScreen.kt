@@ -1,7 +1,9 @@
 package com.cowwie.ui
 
+import android.content.Intent
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -35,6 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.cowwie.PeopleActivity
 import com.cowwie.data.CalendarEvent
 import com.cowwie.data.CalendarRepository
 import com.cowwie.data.Settings
@@ -162,6 +165,18 @@ fun DashboardScreen(interactive: Boolean, modifier: Modifier = Modifier) {
                     EventRow(event = event, nowMillis = System.currentTimeMillis())
                 }
             }
+        }
+
+        if (interactive) {
+            Text(
+                text = "👥",
+                fontSize = 26.sp,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(24.dp)
+                    .alpha(0.6f)
+                    .clickable { context.startActivity(Intent(context, PeopleActivity::class.java)) },
+            )
         }
     }
 
