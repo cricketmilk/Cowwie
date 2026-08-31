@@ -1,11 +1,17 @@
 package com.cowwie.ui
 
 import android.content.ActivityNotFoundException
+import android.content.ContentValues
+import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
 import android.speech.RecognizerIntent
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -57,6 +63,9 @@ import com.cowwie.data.PersonRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * Snap a photo of someone, say their name, and it's saved for later:
@@ -71,6 +80,7 @@ fun PeopleScreen(onBack: () -> Unit) {
     var people by remember { mutableStateOf(repository.load()) }
 
     var pendingPhoto by remember { mutableStateOf<File?>(null) }
+    var actionTarget by remember { mutableStateOf<Person?>(null) }
     var renameTarget by remember { mutableStateOf<Person?>(null) }
     var renameText by remember { mutableStateOf("") }
     var deleteTarget by remember { mutableStateOf<Person?>(null) }
@@ -176,10 +186,7 @@ fun PeopleScreen(onBack: () -> Unit) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.combinedClickable(
-                            onClick = {
-                                renameText = person.name
-                                renameTarget = person
-                            },
+                            onClick = { actionTarget = person },
                             onLongClick = { deleteTarget = person },
                         ),
                     ) {
@@ -195,6 +202,45 @@ fun PeopleScreen(onBack: () -> Unit) {
                 }
             }
         }
+    }
+
+    actionTarget?.let { person ->
+        AlertDialog(
+            onDismissRequest = { actionTarget = null },
+            title = { Text(person.name) },
+            text = {
+                Column {
+                    PersonPhoto(person.photoFile, modifier = Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(12.dp))
+                    TextButton(onClick = {
+                        actionTarget = null
+                        sharePerson(context, person)
+                    }) { Text("📤  Share photo") }
+                    TextButton(onClick = {
+                        actionTarget = null
+                        val saved = savePersonToGallery(context, person)
+                        Toast.makeText(
+                            context,
+                            if (saved) "Saved to Photos (Pictures/Cowwie)"
+                            else "Couldn't save — use Share instead",
+                            Toast.LENGTH_SHORT,
+                        ).show()
+                    }) { Text("⬇️  Save to Photos") }
+                    TextButton(onClick = {
+                        actionTarget = null
+                        renameText = person.name
+                        renameTarget = person
+                    }) { Text("✏️  Rename") }
+                    TextButton(onClick = {
+                        actionTarget = null
+                        deleteTarget = person
+                    }) { Text("🗑  Delete") }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { actionTarget = null }) { Text("Close") }
+            },
+        )
     }
 
     renameTarget?.let { person ->
@@ -248,6 +294,55 @@ fun PeopleScreen(onBack: () -> Unit) {
                 TextButton(onClick = { deleteTarget = null }) { Text("Cancel") }
             },
         )
+    }
+}
+
+/** Hands the photo to any app via the system share sheet, with the name as text. */
+private fun sharePerson(context: Context, person: Person) {
+    try {
+        val uri = FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            person.photoFile,
+        )
+        val send = Intent(Intent.ACTION_SEND).apply {
+            type = "image/jpeg"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            putExtra(Intent.EXTRA_TEXT, person.name)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(Intent.createChooser(send, "Share ${person.name}"))
+    } catch (_: Exception) {
+        Toast.makeText(context, "Couldn't share this photo", Toast.LENGTH_SHORT).show()
+    }
+}
+
+/** Copies the photo into the device gallery under Pictures/Cowwie (Android 10+). */
+private fun savePersonToGallery(context: Context, person: Person): Boolean {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return false
+    return try {
+        val safeName = person.name
+            .replace(Regex("[^A-Za-z0-9 _-]"), "")
+            .trim()
+            .ifBlank { "person" }
+        val stamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date(person.createdAt))
+        val values = ContentValues().apply {
+            put(MediaStore.Images.Media.DISPLAY_NAME, "$safeName-$stamp.jpg")
+            put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+            put(
+                MediaStore.Images.Media.RELATIVE_PATH,
+                "${Environment.DIRECTORY_PICTURES}/Cowwie",
+            )
+        }
+        val resolver = context.contentResolver
+        val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+            ?: return false
+        resolver.openOutputStream(uri)?.use { out ->
+            person.photoFile.inputStream().use { it.copyTo(out) }
+        } ?: return false
+        true
+    } catch (_: Exception) {
+        false
     }
 }
 
