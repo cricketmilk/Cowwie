@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Onboarding</title>
+<link rel="stylesheet" href="../_shared/ifreglen-ui.css">
+<script src="../_shared/ifreglen-ui.js" defer></script>
+<style>
+  /* Layout only. Colour, type, planks, buttons and motion come from the kit. */
+  .bar { grid-area: bar; }
+
+  body { display: grid; overflow: hidden;
+    grid-template-columns: 1fr 360px; grid-template-rows: auto 1fr; grid-template-areas: "bar bar" "board side"; }
+  .board { grid-area: board; overflow: auto; padding: 14px 16px; display: flex; gap: 10px; align-items: flex-start; }
+  .col { min-width: 215px; width: 215px; background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; display: flex; flex-direction: column; max-height: 100%; flex-shrink: 0; }
+  .col.over { border-color: var(--accent); background: var(--panel-2); }
+  .col .head { padding: 9px 11px; border-bottom: 1px solid var(--rule); display: flex; align-items: center; gap: 6px; }
+  .col .head .overline { flex: 1; color: var(--text); font-size: 10px; }
+  .col .head .n { font-family: var(--mono); font-size: 11px; color: var(--faint); }
+  .col .cards { padding: 8px; overflow-y: auto; min-height: 60px; flex: 1; }
+  .hire { background: var(--panel-2); border: 1px solid var(--rule); border-radius: 5px; padding: 8px 10px; margin-bottom: 8px; cursor: grab; }
+  .hire.sel { box-shadow: inset 3px 0 0 var(--accent); }
+  .hire.dragging { opacity: .4; }
+  .hire .n { font-weight: 600; font-size: 13px; }
+  .hire .m { font-family: var(--mono); font-size: 10.5px; color: var(--dim); margin-top: 1px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+  .chip { font-family: var(--mono); font-size: 10px; padding: 1px 6px; border-radius: 3px; background: rgba(36,42,59,.8); color: var(--dim); white-space: nowrap; }
+  .chip.due { background: rgba(217,161,91,.18); color: var(--warn); }
+  .chip.over { background: rgba(224,112,112,.2); color: var(--hot); }
+  .chip.ok { background: rgba(127,214,168,.15); color: var(--ok); }
+  .prog { height: 3px; background: var(--rule); border-radius: 2px; margin-top: 7px; overflow: hidden; }
+  .prog div { height: 100%; background: var(--accent); }
+  .side { grid-area: side; background: var(--panel); border-left: 1px solid var(--rule); display: flex; flex-direction: column; overflow: hidden; }
+  textarea { min-height: 70px; resize: vertical; }
+  .task { display: grid; grid-template-columns: 18px 1fr auto; gap: 8px; align-items: start; padding: 6px 0; border-bottom: 1px solid var(--rule); font-size: 13px; }
+  .task input[type=checkbox] { width: auto; margin: 3px 0 0; }
+  .task.done .t { color: var(--faint); text-decoration: line-through; }
+  .task .d { font-family: var(--mono); font-size: 10.5px; color: var(--dim); }
+  .task input[type=date] { padding: 2px 4px; font-size: 11px; width: 125px; }
+  .blk { background: var(--panel-2); border: 1px solid var(--rule); border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; cursor: pointer; }
+  .blk .n { font-weight: 600; } .blk .m { font-size: 12px; color: var(--bad); }
+  label.tgl { font-size: 12px; color: var(--dim); display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  label.tgl input { width: auto; }
+  @media (max-width: 900px) { body { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; grid-template-areas: "bar" "board" "side"; } .side { max-height: 45vh; border-left: 0; border-top: 1px solid var(--rule); } }
+</style>
+</head>
+<body>
+<div class="bar">
+  <div class="logo">Onboarding<small>new-hire pipeline</small></div>
+  <div class="status" id="status"></div>
+  <div class="spacer"></div>
+  <label class="tgl" title="On open, file a brief for anything overdue"><input type="checkbox" id="autoBrief"> auto-brief overdue on open</label>
+  <button id="btnBlocked">What's blocked</button>
+  <button id="btnAdd" class="primary">+ Hire</button>
+  <button id="btnExportCsv">Export CSV</button>
+  <button id="btnExportJson">Export JSON</button>
+</div>
+<div class="board" id="board" data-stagger></div>
+<div class="side">
+  <div class="tabs"><button class="active" data-tab="hire">Hire</button><button data-tab="blocked">Blocked</button><button data-tab="tools">Tools</button></div>
+  <div class="panel" id="side" data-stagger></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ------------------------------------------------------------- persistence
+// Same bridge as Credentials: roost.store in the shell, localStorage in a
+// browser; briefs over the bus as "briefs.file" {title, body, level?, url?},
+// queued in localStorage when no bus exists.
+const STORE_KEY = "onboarding.v1", PREF_KEY = "onboarding.prefs", BRIEF_QUEUE_KEY = "onboarding.briefQueue";
+const roost = window.roost || null;
+const store = {
+  async get(k) { if (roost && roost.store) { const v = await roost.store.get(k); return v ?? null; } try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
+  async set(k, v) { if (roost && roost.store) return roost.store.set(k, v); localStorage.setItem(k, JSON.stringify(v)); },
+};
+async function fileBrief(brief) {
+  if (roost && roost.bus) { const r = await roost.bus.publish("briefs.file", brief); return !(r && r.error); }
+  const q = JSON.parse(localStorage.getItem(BRIEF_QUEUE_KEY) || "[]"); q.push({ ...brief, when: new Date().toISOString() });
+  localStorage.setItem(BRIEF_QUEUE_KEY, JSON.stringify(q.slice(-20))); return false;
+}
+const briefQueue = () => JSON.parse(localStorage.getItem(BRIEF_QUEUE_KEY) || "[]");
+
+// ------------------------------------------------------------- domain
+const STAGES = [
+  { id: "offer", name: "Offer accepted" },
+  { id: "background", name: "Background check" },
+  { id: "credentials", name: "Licence / credential verification" },
+  { id: "health", name: "Health screening" },
+  { id: "orientation", name: "Orientation scheduled" },
+  { id: "access", name: "Badge & IT access" },
+  { id: "started", name: "Started" },
+  { id: "checkins", name: "30/60/90-day check-ins" },
+];
+const ROLES = ["RN", "CNA", "MA", "Provider", "Admin"];
+// Checklist templates: {t: task, stage, due: days relative to start date
+// (negative = before day one)}. Sensible defaults for a US healthcare
+// employer; edit per hire once added. Tasks are tied to the stage they
+// gate, which is what makes "what's blocked" meaningful.
+const COMMON_PRE = [
+  { t: "Signed offer letter on file", stage: "offer", due: -30 },
+  { t: "Criminal background check cleared", stage: "background", due: -21 },
+  { t: "OIG LEIE / SAM exclusion check documented", stage: "background", due: -21 },
+  { t: "Reference checks complete", stage: "background", due: -21 },
+  { t: "I-9 / E-Verify completed", stage: "background", due: 3 },
+  { t: "TB screening (2-step PPD or IGRA) result on file", stage: "health", due: -7 },
+  { t: "Immunization records (MMR, Varicella, Tdap, Hep B status)", stage: "health", due: -7 },
+  { t: "Drug screen result on file", stage: "health", due: -7 },
+  { t: "Flu vaccine or declination (in season)", stage: "health", due: -7 },
+  { t: "Orientation date confirmed with hire", stage: "orientation", due: -5 },
+  { t: "HIPAA privacy & security training assigned", stage: "orientation", due: 7 },
+  { t: "Badge photo taken and badge printed", stage: "access", due: -1 },
+  { t: "Network login, email and EHR account requested", stage: "access", due: -3 },
+  { t: "Parking / building access granted", stage: "access", due: -1 },
+  { t: "Day-one welcome and unit introduction", stage: "started", due: 0 },
+  { t: "30-day check-in with manager", stage: "checkins", due: 30 },
+  { t: "60-day check-in", stage: "checkins", due: 60 },
+  { t: "90-day review and introductory period close-out", stage: "checkins", due: 90 },
+];
+const TEMPLATES = {
+  RN: [
+    { t: "RN licence verified with state board (Nursys)", stage: "credentials", due: -14 },
+    { t: "BLS card current", stage: "credentials", due: -14 },
+    { t: "ACLS / PALS as required by unit", stage: "credentials", due: -14 },
+    { t: "Nursing orientation / preceptor assigned", stage: "orientation", due: -5 },
+    { t: "EHR nursing competency sign-off", stage: "started", due: 14 },
+  ],
+  CNA: [
+    { t: "CNA listed on state nurse aide registry (active, no findings)", stage: "credentials", due: -14 },
+    { t: "BLS card current", stage: "credentials", due: -14 },
+    { t: "Skills competency checklist with unit educator", stage: "started", due: 14 },
+  ],
+  MA: [
+    { t: "MA certification (CMA/RMA) on file if required", stage: "credentials", due: -14 },
+    { t: "BLS card current", stage: "credentials", due: -14 },
+    { t: "Injection / phlebotomy competency sign-off", stage: "started", due: 14 },
+  ],
+  Provider: [
+    { t: "State licence verified with medical / nursing board", stage: "credentials", due: -45 },
+    { t: "DEA registration and state CSR verified", stage: "credentials", due: -45 },
+    { t: "Board certification verified (primary source)", stage: "credentials", due: -45 },
+    { t: "NPDB self-query / query on file", stage: "credentials", due: -45 },
+    { t: "Credentialing committee approval / privileges granted", stage: "credentials", due: -14 },
+    { t: "Payer enrollment started (CAQH, Medicare, Medicaid)", stage: "credentials", due: -30 },
+    { t: "Malpractice coverage confirmed", stage: "access", due: -7 },
+    { t: "EHR provider build and e-prescribing enabled", stage: "access", due: -3 },
+  ],
+  Admin: [
+    { t: "Education / employment verification", stage: "credentials", due: -14 },
+    { t: "Role-based system access approved by manager", stage: "access", due: -3 },
+  ],
+};
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const uid = () => Math.random().toString(36).slice(2, 10);
+const today = () => new Date().toISOString().slice(0, 10);
+const addDays = (iso, n) => { const d = new Date(iso + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+const daysUntil = (d) => d ? Math.round((Date.parse(d) - Date.parse(today())) / 86400000) : null;
+const stageIndex = (id) => STAGES.findIndex((s) => s.id === id);
+let toastT;
+function toast(m) { const t = $("#toast"); t.textContent = m; t.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), 2600); }
+
+let hires = [], prefs = { autoBrief: false };
+let ui = { tab: "hire", sel: null };
+const save = () => store.set(STORE_KEY, hires);
+
+function buildChecklist(role, startDate) {
+  const base = startDate || today();
+  return [...COMMON_PRE, ...(TEMPLATES[role] || TEMPLATES.Admin)].map((x) => ({ id: uid(), t: x.t, stage: x.stage, due: addDays(base, x.due), done: false }));
+}
+// Open tasks whose stage is at or before the hire's current stage are what
+// stands between them and the next column; overdue ones are "blocked".
+function openTasks(h) { return (h.checklist || []).filter((c) => !c.done); }
+function overdueTasks(h) { return openTasks(h).filter((c) => c.due && daysUntil(c.due) < 0); }
+function blockingTasks(h) { const i = stageIndex(h.stage); return openTasks(h).filter((c) => stageIndex(c.stage) <= i); }
+
+// ------------------------------------------------------------- board
+function render() {
+  const board = $("#board");
+  board.innerHTML = STAGES.map((s) => {
+    const list = hires.filter((h) => h.stage === s.id).sort((a, b) => (a.startDate || "") > (b.startDate || "") ? 1 : -1);
+    return `<div class="col" data-stage="${s.id}"><div class="head"><span class="overline">${esc(s.name)}</span><span class="n">${list.length}</span></div><div class="cards">
+      ${list.map((h) => {
+        const over = overdueTasks(h), open = openTasks(h), total = (h.checklist || []).length, done = total - open.length, n = daysUntil(h.startDate);
+        const nextDue = open.filter((c) => c.due).sort((a, b) => a.due > b.due ? 1 : -1)[0];
+        return `<div class="hire ${ui.sel === h.id ? "sel" : ""}" draggable="true" data-id="${h.id}">
+          <div class="n">${esc(h.name)}</div>
+          <div class="m">${esc(h.role)} · ${esc(h.dept || "—")}${h.owner ? " · " + esc(h.owner) : ""}</div>
+          <div class="chips">
+            ${h.startDate ? `<span class="chip ${n !== null && n < 0 ? "ok" : n <= 7 ? "due" : ""}">start ${esc(h.startDate)}${n !== null ? (n < 0 ? " · day " + (-n) : n === 0 ? " · today" : " · in " + n + "d") : ""}</span>` : ""}
+            ${over.length ? `<span class="chip over">${over.length} overdue</span>` : nextDue ? `<span class="chip ${daysUntil(nextDue.due) <= 3 ? "due" : ""}">next ${esc(nextDue.due)}</span>` : open.length ? "" : `<span class="chip ok">all done</span>`}
+          </div>
+          <div class="prog" title="${done}/${total} tasks"><div style="width:${total ? Math.round(done / total * 100) : 0}%"></div></div>
+        </div>`; }).join("") || `<div class="empty" style="padding:14px;font-size:12px">—</div>`}
+    </div></div>`;
+  }).join("");
+  // HTML5 drag/drop between columns. dataTransfer carries only the id; the
+  // stage change is recorded on drop, nothing moves until then.
+  board.querySelectorAll(".hire").forEach((el) => {
+    el.onclick = () => { ui.sel = el.dataset.id; ui.tab = "hire"; render(); renderSide(); };
+    el.ondragstart = (e) => { e.dataTransfer.setData("text/plain", el.dataset.id); e.dataTransfer.effectAllowed = "move"; el.classList.add("dragging"); };
+    el.ondragend = () => el.classList.remove("dragging");
+  });
+  board.querySelectorAll(".col").forEach((col) => {
+    col.ondragover = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; col.classList.add("over"); };
+    col.ondragleave = () => col.classList.remove("over");
+    col.ondrop = (e) => { e.preventDefault(); col.classList.remove("over"); setStage(e.dataTransfer.getData("text/plain"), col.dataset.stage); };
+  });
+  const over = hires.reduce((n, h) => n + overdueTasks(h).length, 0);
+  $("#status").textContent = `${hires.length} in pipeline · ${over} overdue task${over === 1 ? "" : "s"} · ${roost ? "shell store" : "browser storage"}${roost && roost.bus ? " · bus" : " · no bus"}`;
+}
+function setStage(id, stage) {
+  const h = hires.find((x) => x.id === id); if (!h || h.stage === stage) return;
+  h.stage = stage; h.stageChanged = today();
+  (h.history = h.history || []).push({ stage, when: today() });
+  save(); render(); if (ui.sel === id) renderSide(); toast(`${h.name} → ${STAGES[stageIndex(stage)].name}`);
+}
+
+// ------------------------------------------------------------- side
+document.querySelectorAll(".tabs button").forEach((b) => b.onclick = () => { ui.tab = b.dataset.tab; renderSide(); });
+function renderSide() {
+  document.querySelectorAll(".tabs button").forEach((b) => b.classList.toggle("active", b.dataset.tab === ui.tab));
+  if (ui.tab === "blocked") return renderBlocked();
+  if (ui.tab === "tools") return renderTools();
+  const h = hires.find((x) => x.id === ui.sel);
+  if (!h) { $("#side").innerHTML = `<div class="empty"><div class="glyph">←</div>Pick a hire on the board, or add one.</div><div class="acts" style="justify-content:center"><button class="primary" id="s-add">+ Hire</button></div>`; $("#s-add").onclick = () => hireForm(); return; }
+  const idx = stageIndex(h.stage), next = STAGES[idx + 1];
+  const blocking = blockingTasks(h);
+  const tasks = [...(h.checklist || [])].sort((a, b) => (a.done - b.done) || ((a.due || "9999") > (b.due || "9999") ? 1 : -1));
+  $("#side").innerHTML = `
+    <div style="display:flex;align-items:baseline;gap:10px"><h2 style="margin:0;font-size:18px">${esc(h.name)}</h2><span class="overline">${esc(h.role)}</span></div>
+    <div class="overline" style="margin:2px 0 10px">${esc(h.dept || "—")} · starts ${esc(h.startDate || "—")} · owner ${esc(h.owner || "—")}</div>
+    <div class="overline" style="color:var(--accent);margin-bottom:8px">Stage ${idx + 1}/${STAGES.length} · ${esc(STAGES[idx].name)}</div>
+    ${blocking.length ? `<div style="font-size:12px;color:var(--warn);margin-bottom:8px">${blocking.length} open task${blocking.length === 1 ? "" : "s"} gate this stage${overdueTasks(h).length ? `, ${overdueTasks(h).length} overdue` : ""}.</div>` : ""}
+    <div class="acts" style="margin-bottom:10px">${next ? `<button class="primary sm" id="h-next">Next stage → ${esc(next.name)}</button>` : ""}<button class="sm" id="h-edit">Edit</button><button class="sm" id="h-addtask">+ Task</button><button class="sm danger" id="h-del">Remove</button></div>
+    <div class="overline" style="margin-bottom:4px">Checklist</div>
+    ${tasks.map((c) => { const n = daysUntil(c.due); return `<div class="task ${c.done ? "done" : ""}"><input type="checkbox" data-t="${c.id}" ${c.done ? "checked" : ""}><div><div class="t">${esc(c.t)}</div><div class="d">${esc(STAGES[stageIndex(c.stage)]?.name || c.stage)}</div></div><div style="text-align:right"><input type="date" data-d="${c.id}" value="${esc(c.due || "")}"><br>${!c.done && n !== null ? `<span class="chip ${n < 0 ? "over" : n <= 3 ? "due" : ""}">${n < 0 ? Math.abs(n) + "d overdue" : n === 0 ? "today" : "in " + n + "d"}</span>` : ""}</div></div>`; }).join("")}
+    ${h.notes ? `<div class="overline" style="margin:12px 0 4px">Notes</div><div style="font-size:13px;white-space:pre-wrap">${esc(h.notes)}</div>` : ""}
+    <div id="s-form"></div>`;
+  if ($("#h-next")) $("#h-next").onclick = () => { if (blocking.length && !confirm(`${blocking.length} task(s) for this stage are still open. Move on anyway?`)) return; setStage(h.id, next.id); };
+  $("#h-edit").onclick = () => hireForm(h);
+  $("#h-del").onclick = () => { if (!confirm(`Remove ${h.name} from the pipeline?`)) return; hires = hires.filter((x) => x.id !== h.id); ui.sel = null; save(); render(); renderSide(); };
+  $("#h-addtask").onclick = () => {
+    $("#s-form").innerHTML = `<div class="overline" style="margin:12px 0 6px">New task</div><div class="field"><input id="t-t" placeholder="task"></div><div class="row"><div class="field"><select id="t-stage">${STAGES.map((s) => `<option value="${s.id}" ${s.id === h.stage ? "selected" : ""}>${esc(s.name)}</option>`).join("")}</select></div><div class="field"><input id="t-due" type="date"></div></div><div class="acts"><button class="primary sm" id="t-save">Add</button></div>`;
+    $("#t-save").onclick = () => { const t = $("#t-t").value.trim(); if (!t) return; h.checklist.push({ id: uid(), t, stage: $("#t-stage").value, due: $("#t-due").value, done: false }); save(); render(); renderSide(); };
+  };
+  $("#side").querySelectorAll("[data-t]").forEach((cb) => cb.onchange = () => { const c = h.checklist.find((x) => x.id === cb.dataset.t); c.done = cb.checked; c.doneOn = cb.checked ? today() : null; save(); render(); renderSide(); });
+  $("#side").querySelectorAll("[data-d]").forEach((inp) => inp.onchange = () => { h.checklist.find((x) => x.id === inp.dataset.d).due = inp.value; save(); render(); renderSide(); });
+}
+
+function hireForm(h = {}) {
+  ui.tab = "hire"; document.querySelectorAll(".tabs button").forEach((b) => b.classList.toggle("active", b.dataset.tab === "hire"));
+  $("#side").innerHTML = `<div class="overline" style="margin-bottom:10px">${h.id ? "Edit hire" : "New hire"}</div>
+    <div class="field"><div class="lbl">Name</div><input id="f-name" value="${esc(h.name || "")}"></div>
+    <div class="row"><div class="field"><div class="lbl">Role</div><select id="f-role">${ROLES.map((r) => `<option ${h.role === r ? "selected" : ""}>${r}</option>`).join("")}</select></div>
+    <div class="field"><div class="lbl">Department</div><input id="f-dept" value="${esc(h.dept || "")}"></div></div>
+    <div class="row"><div class="field"><div class="lbl">Start date</div><input id="f-start" type="date" value="${esc(h.startDate || "")}"></div>
+    <div class="field"><div class="lbl">Owner (HR)</div><input id="f-owner" value="${esc(h.owner || "")}"></div></div>
+    ${h.id ? "" : `<div class="field"><div class="lbl">Stage</div><select id="f-stage">${STAGES.map((s) => `<option value="${s.id}">${esc(s.name)}</option>`).join("")}</select></div>`}
+    <div class="field"><div class="lbl">Notes</div><textarea id="f-notes">${esc(h.notes || "")}</textarea></div>
+    ${h.id ? "" : `<p style="font-size:11.5px;color:var(--faint)">A role-based checklist is generated from the start date; edit it afterwards.</p>`}
+    <div class="acts"><button class="primary" id="f-save">${h.id ? "Save" : "Add hire"}</button><button id="f-cancel">Cancel</button>${h.id ? `<button id="f-regen" title="Replace checklist with the template for this role">Rebuild checklist</button>` : ""}</div>`;
+  $("#f-cancel").onclick = renderSide;
+  $("#f-save").onclick = () => {
+    const name = $("#f-name").value.trim(); if (!name) return toast("Name is required");
+    const role = $("#f-role").value, startDate = $("#f-start").value;
+    if (h.id) { Object.assign(h, { name, role, dept: $("#f-dept").value.trim(), startDate, owner: $("#f-owner").value.trim(), notes: $("#f-notes").value }); }
+    else { const rec = { id: uid(), name, role, dept: $("#f-dept").value.trim(), startDate, owner: $("#f-owner").value.trim(), notes: $("#f-notes").value, stage: $("#f-stage").value, created: today(), checklist: buildChecklist(role, startDate), history: [{ stage: $("#f-stage").value, when: today() }] }; hires.push(rec); ui.sel = rec.id; }
+    save(); render(); renderSide(); toast(h.id ? "Saved" : "Added " + name);
+  };
+  if ($("#f-regen")) $("#f-regen").onclick = () => { if (!confirm("Replace the checklist (and its ticks) with the role template?")) return; h.checklist = buildChecklist($("#f-role").value, $("#f-start").value); save(); render(); renderSide(); };
+}
+
+// ------------------------------------------------------------- blocked
+function blockedReport() {
+  const rows = hires.filter((h) => h.stage !== "checkins" || overdueTasks(h).length).map((h) => ({ h, over: overdueTasks(h), block: blockingTasks(h) })).filter((r) => r.over.length || (r.h.startDate && daysUntil(r.h.startDate) <= 7 && r.block.length));
+  rows.sort((a, b) => b.over.length - a.over.length);
+  const lines = rows.map((r) => `${r.h.name} (${r.h.role}, ${STAGES[stageIndex(r.h.stage)].name}${r.h.startDate ? ", starts " + r.h.startDate : ""})${r.h.owner ? " · " + r.h.owner : ""}\n` + [...r.over.map((c) => `  - OVERDUE ${Math.abs(daysUntil(c.due))}d: ${c.t}`), ...r.block.filter((c) => !r.over.includes(c)).map((c) => `  - open: ${c.t}${c.due ? " (due " + c.due + ")" : ""}`)].join("\n"));
+  const overdue = rows.reduce((n, r) => n + r.over.length, 0);
+  return { rows, overdue, title: rows.length ? `Onboarding: ${overdue} overdue task${overdue === 1 ? "" : "s"} across ${rows.length} hire${rows.length === 1 ? "" : "s"}` : "Onboarding: nothing blocked", body: lines.join("\n\n") || "Every hire is on track.", level: overdue ? "urgent" : rows.length ? "normal" : "quiet" };
+}
+function renderBlocked() {
+  const r = blockedReport();
+  $("#side").innerHTML = `<div class="overline" style="margin-bottom:8px">What's blocked · ${today()}</div>
+    ${r.rows.length ? r.rows.map((x) => `<div class="blk" data-id="${x.h.id}"><div class="n">${esc(x.h.name)} <span class="overline">${esc(x.h.role)}</span></div><div class="m">${x.over.length ? x.over.length + " overdue" : ""}${x.over.length && x.block.length > x.over.length ? " · " : ""}${x.block.length > x.over.length ? (x.block.length - x.over.length) + " open before start" : ""}</div></div>`).join("") : `<div class="empty"><div class="glyph">✓</div>Nothing blocked. Every hire is on track.</div>`}
+    <div class="acts"><button class="primary" id="b-file">File brief${r.overdue ? ` (${r.overdue} overdue)` : ""}</button><button id="b-copy">Copy summary</button></div>
+    <pre class="draft" style="margin-top:10px">${esc(r.title + "\n\n" + r.body)}</pre>`;
+  $("#side").querySelectorAll(".blk").forEach((el) => el.onclick = () => { ui.sel = el.dataset.id; ui.tab = "hire"; render(); renderSide(); });
+  $("#b-file").onclick = async () => { const sent = await fileBrief({ title: r.title, body: r.body, level: r.level }); toast(sent ? "Brief filed to the shell" : "No bus here — brief queued locally"); if (ui.tab === "tools") renderTools(); };
+  $("#b-copy").onclick = () => navigator.clipboard.writeText(r.title + "\n\n" + r.body).then(() => toast("Copied"));
+}
+$("#btnBlocked").onclick = () => { ui.tab = "blocked"; renderSide(); };
+
+// ------------------------------------------------------------- tools
+function csvEscape(v) { v = String(v ?? ""); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
+function exportCsv() {
+  const cols = ["name", "role", "dept", "startDate", "stage", "owner", "tasksDone", "tasksTotal", "overdue", "nextDue", "notes"];
+  const lines = [cols.join(",")];
+  for (const h of hires) { const open = openTasks(h); const next = open.filter((c) => c.due).sort((a, b) => a.due > b.due ? 1 : -1)[0]; lines.push([h.name, h.role, h.dept, h.startDate, STAGES[stageIndex(h.stage)].name, h.owner, (h.checklist || []).length - open.length, (h.checklist || []).length, overdueTasks(h).length, next ? next.due : "", h.notes].map(csvEscape).join(",")); }
+  return lines.join("\n");
+}
+function download(name, text, type = "text/plain") { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); }
+$("#btnExportCsv").onclick = () => download(`onboarding-${today()}.csv`, exportCsv(), "text/csv");
+$("#btnExportJson").onclick = () => download(`onboarding-${today()}.json`, JSON.stringify(hires, null, 2), "application/json");
+$("#btnAdd").onclick = () => hireForm();
+$("#autoBrief").onchange = (e) => { prefs.autoBrief = e.target.checked; store.set(PREF_KEY, prefs); };
+
+// Fake hires, never loaded automatically. Dates are relative to today so the
+// demo always shows one overdue case, one due soon, and one on track.
+function demoData() {
+  const mk = (name, role, dept, startOff, stage, owner, tweak) => { const startDate = addDays(today(), startOff); const h = { id: uid(), name, role, dept, startDate, stage, owner, notes: "demo", created: today(), checklist: buildChecklist(role, startDate), history: [{ stage, when: today() }] }; tweak && tweak(h); return h; };
+  const tickUpTo = (h, stageId) => { const i = stageIndex(stageId); for (const c of h.checklist) if (stageIndex(c.stage) < i) c.done = true; };
+  return [
+    mk("Demo Nurse One", "RN", "Med-Surg", 5, "credentials", "HR-A", (h) => { tickUpTo(h, "credentials"); }),
+    mk("Demo Aide Two", "CNA", "Long-term care", 12, "background", "HR-B", (h) => { tickUpTo(h, "background"); }),
+    mk("Demo Provider Three", "Provider", "Primary care", 21, "credentials", "HR-A", (h) => { tickUpTo(h, "credentials"); }),
+    mk("Demo Assistant Four", "MA", "Primary care", -3, "started", "HR-B", (h) => { tickUpTo(h, "checkins"); h.checklist.find((c) => c.t.startsWith("Badge photo")).done = false; }),
+    mk("Demo Admin Five", "Admin", "HR", 30, "offer", "HR-A"),
+    mk("Demo Nurse Six", "RN", "ICU", -45, "checkins", "HR-B", (h) => { tickUpTo(h, "checkins"); h.checklist.find((c) => c.t.startsWith("30-day")).done = true; }),
+  ];
+}
+function renderTools() {
+  $("#side").innerHTML = `<div class="overline" style="margin-bottom:8px">Demo data</div><div class="acts"><button id="t-demo">Load demo data</button><button class="danger" id="t-wipe">Wipe everything</button></div>
+    <div class="overline" style="margin:18px 0 8px">Stages</div><ol style="font-size:12.5px;color:var(--dim);padding-left:18px;margin:0">${STAGES.map((s) => `<li>${esc(s.name)}</li>`).join("")}</ol>
+    <div class="overline" style="margin:18px 0 8px">Checklist templates</div><div style="font-size:12px;color:var(--dim)">${ROLES.map((r) => `<b style="color:var(--text)">${r}</b>: ${COMMON_PRE.length + TEMPLATES[r].length} tasks`).join(" · ")}</div>
+    ${briefQueue().length ? `<div class="overline" style="margin:18px 0 8px">Queued briefs (no bus)</div>${briefQueue().map((b) => `<div class="blk" style="cursor:default"><div class="n">${esc(b.title)}</div><div class="overline">${esc(b.when)}</div></div>`).join("")}<button class="sm" id="t-clearq">Clear queue</button>` : ""}`;
+  $("#t-demo").onclick = () => { if (hires.length && !confirm("Add demo hires alongside the existing data?")) return; hires.push(...demoData()); save(); render(); renderSide(); toast("Demo data loaded"); };
+  $("#t-wipe").onclick = () => { if (!confirm("Delete every hire? Export first if unsure.")) return; hires = []; ui.sel = null; save(); render(); renderSide(); };
+  if ($("#t-clearq")) $("#t-clearq").onclick = () => { localStorage.removeItem(BRIEF_QUEUE_KEY); renderTools(); };
+}
+
+(async () => {
+  const saved = await store.get(STORE_KEY); if (Array.isArray(saved)) hires = saved;
+  const p = await store.get(PREF_KEY); if (p && typeof p === "object") prefs = { ...prefs, ...p };
+  $("#autoBrief").checked = !!prefs.autoBrief;
+  render(); renderSide();
+  // Auto-brief on open: only when the user turned it on, and only if there is
+  // actually something overdue, so a quiet morning sends nothing.
+  if (prefs.autoBrief) { const r = blockedReport(); if (r.overdue) { const sent = await fileBrief({ title: r.title, body: r.body, level: r.level }); toast(sent ? "Overdue brief filed on open" : "Overdue brief queued (no bus)"); } }
+})();
+</script>
+</body>
+</html>

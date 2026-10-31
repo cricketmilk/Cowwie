@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Lookout</title>
+<link rel="stylesheet" href="/_ifreglen/ifreglen-ui.css">
+<script src="/_ifreglen/ifreglen-ui.js" defer></script>
+<style>
+  /* Layout only. Colour, type, planks, buttons and motion come from the kit. */
+  .bar { grid-area: bar; }
+  .finding { padding: 12px 14px; margin-bottom: 10px; }
+
+  body {
+    display: grid; overflow: hidden;
+    grid-template-columns: 340px 1fr 360px;
+    grid-template-rows: auto 1fr 190px;
+    grid-template-areas: "bar bar bar" "watches main side" "score score side";
+  }
+
+  .watches { grid-area: watches; background: var(--panel); border-right: 1px solid var(--rule); overflow-y: auto; display: flex; flex-direction: column; }
+  .watches .head { padding: 12px 14px 8px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--rule); }
+  .watches .head .overline { flex: 1; }
+  .watch { padding: 10px 14px; border-bottom: 1px solid var(--rule); cursor: pointer; display: grid; grid-template-columns: 12px 1fr auto; gap: 8px; align-items: start; }
+  .watch:hover { background: var(--panel-2); }
+  .watch.sel { background: var(--panel-2); box-shadow: inset 3px 0 0 var(--accent); }
+  .lamp { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); margin-top: 6px; }
+  .lamp.steady { background: var(--ok); } .lamp.changed { background: var(--warn); box-shadow: 0 0 6px var(--warn); }
+  .lamp.error { background: var(--bad); } .lamp.checking { background: var(--accent); animation: pulse 1s infinite; } .lamp.baseline { background: var(--dim); }
+  .watch .name { font-weight: 600; font-size: 13.5px; }
+  .watch .meta { font-family: var(--mono); font-size: 10.5px; color: var(--dim); margin-top: 2px; }
+  .watch .age { font-family: var(--mono); font-size: 11px; color: var(--dim); text-align: right; }
+  .watch .age.fresh { color: var(--warn); }
+  .tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+  .tag { font-family: var(--mono); font-size: 10px; color: var(--dim); background: rgba(36,42,59,.7); padding: 1px 6px; border-radius: 3px; }
+
+  .main { grid-area: main; overflow-y: auto; padding: 16px 20px; }
+  .main h2 { margin: 0 0 12px; font-size: 15px; display: flex; align-items: center; gap: 10px; }
+  .finding.acked { opacity: .55; }
+  .finding .top { display: flex; align-items: center; gap: 10px; }
+  .finding .score { font-family: var(--mono); font-weight: 700; font-size: 18px; min-width: 40px; }
+  .score.hi { color: var(--hot); } .score.mid { color: var(--warn); } .score.lo { color: var(--dim); }
+  .finding .title { font-weight: 600; flex: 1; }
+  .finding .when { font-family: var(--mono); font-size: 11px; color: var(--dim); }
+  .finding .summary { margin: 6px 0 4px; color: var(--text); font-size: 13px; }
+  .finding .reasons { font-family: var(--mono); font-size: 10.5px; color: var(--faint); }
+  .finding .acts { display: flex; gap: 8px; margin-top: 8px; }
+  .finding .acts button, .finding .acts .btn { font-size: 11.5px; padding: 4px 10px; text-decoration: none; }
+  .diff { margin-top: 8px; font-family: var(--mono); font-size: 11.5px; background: var(--bg); border: 1px solid var(--rule); border-radius: 4px; padding: 8px 10px; max-height: 320px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
+  .diff .add { color: var(--ok); } .diff .del { color: var(--bad); }
+  .diff .add::before { content: "+ "; } .diff .del::before { content: "- "; }
+
+  .side { grid-area: side; background: var(--panel); border-left: 1px solid var(--rule); display: flex; flex-direction: column; overflow: hidden; }
+  textarea { resize: vertical; min-height: 70px; font-family: var(--mono); font-size: 12px; }
+  .preset { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--rule); font-size: 12.5px; }
+  .preset .p-name { flex: 1; }
+  .preset .p-tag { font-family: var(--mono); font-size: 10px; color: var(--faint); }
+  .preset button { padding: 3px 9px; font-size: 11px; }
+  .preset.added button { border-color: var(--ok); color: var(--ok); }
+  .detail .kv { display: grid; grid-template-columns: 90px 1fr; gap: 4px 10px; font-size: 12.5px; margin-bottom: 10px; }
+  .detail .kv .k { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--faint); padding-top: 3px; }
+  .detail .kv .v { word-break: break-all; }
+
+  .score-pane { grid-area: score; background: var(--panel); border-top: 1px solid var(--rule); padding: 12px 20px; overflow-x: auto; }
+  .score-grid { display: flex; gap: 14px; margin-top: 8px; }
+  .score-card { min-width: 190px; background: var(--panel-2); border: 1px solid var(--rule); border-radius: 6px; padding: 10px 12px; }
+  .score-card .n { font-weight: 600; font-size: 13px; margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bars { display: flex; align-items: flex-end; gap: 3px; height: 44px; }
+  .bars div { flex: 1; background: var(--rule); border-radius: 2px 2px 0 0; min-height: 2px; }
+  .bars div.hit { background: var(--accent); }
+  .score-card .m { font-family: var(--mono); font-size: 10.5px; color: var(--dim); margin-top: 5px; display: flex; justify-content: space-between; }
+  @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .3 } }
+</style>
+</head>
+<body>
+<div class="bar">
+  <div class="logo">Lookout<small>monitoring &amp; research</small></div>
+  <div class="status" id="status"><span class="lamp"></span>connecting…</div>
+  <div class="spacer"></div>
+  <button id="btnCheckAll">Check all now</button>
+  <a class="btn" href="/api/report" target="_blank">Report</a>
+  <a class="btn" href="/api/export" download="lookout-dossier.md">Export dossier</a>
+</div>
+
+<div class="watches">
+  <div class="head"><span class="overline">Watches</span><button id="btnAdd" class="primary">+ Add</button></div>
+  <div id="watchList" data-stagger></div>
+</div>
+
+<div class="main">
+  <h2><span id="feedTitle">Findings</span><span class="overline" id="feedCount"></span><span class="spacer"></span><label class="overline" style="cursor:pointer"><input type="checkbox" id="showAcked" style="width:auto;margin-right:6px;vertical-align:middle">show acknowledged</label></h2>
+  <div id="feed" data-stagger></div>
+</div>
+
+<div class="side">
+  <div class="tabs">
+    <button class="active" data-tab="presets">Presets</button>
+    <button data-tab="detail">Detail</button>
+    <button data-tab="research">Research</button>
+  </div>
+  <div class="panel" id="sidePanel" data-stagger></div>
+</div>
+
+<div class="score-pane">
+  <span class="overline">Signal scorecard · changes per source per week</span>
+  <div class="score-grid" id="scoreGrid" data-stagger></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ------------------------------------------------------------- presets
+// Public, read-only pages a healthcare HR desk keeps an eye on. Two slots
+// (state board, competitor postings) take a URL the user pastes, since those
+// are specific to their state and market.
+const PRESETS = [
+  { key: "oig",  name: "OIG LEIE exclusions",      url: "https://oig.hhs.gov/exclusions/exclusions_list.asp", tags: ["compliance", "exclusion"], every: "daily", hint: "exclusion" },
+  { key: "sam",  name: "SAM.gov exclusions",       url: "https://sam.gov/content/exclusions",                 tags: ["compliance", "exclusion"], every: "weekly" },
+  { key: "cms",  name: "CMS newsroom",             url: "https://www.cms.gov/newsroom",                       tags: ["compliance"], every: "daily" },
+  { key: "osha", name: "OSHA news",                url: "https://www.osha.gov/news",                          tags: ["safety"], every: "daily" },
+  { key: "eeoc", name: "EEOC newsroom",            url: "https://www.eeoc.gov/newsroom",                      tags: ["labor-law"], every: "daily" },
+  { key: "whd",  name: "DOL Wage & Hour news",     url: "https://www.dol.gov/agencies/whd/news",              tags: ["labor-law"], every: "daily" },
+  { key: "tjc",  name: "Joint Commission news",    url: "https://www.jointcommission.org/en-us/knowledge-library/news", tags: ["compliance", "safety"], every: "weekly" },
+  { key: "hipaa",name: "HHS HIPAA news",           url: "https://www.hhs.gov/hipaa/newsroom/index.html",      tags: ["compliance", "privacy"], every: "daily" },
+  { key: "ncsbn",name: "NCSBN nursing news",       url: "https://www.ncsbn.org/news.page",                    tags: ["licensing"], every: "weekly" },
+  { key: "board",name: "State licensing board",    url: "", tags: ["licensing"], every: "daily", slot: "Paste your state board's verification or news URL" },
+  { key: "jobs", name: "Competitor postings",      url: "", tags: ["postings"], every: "daily", kind: "list", slot: "Paste a job-board search URL for your market" },
+];
+
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const api = async (p, opt = {}) => {
+  const r = await fetch("/api" + p, { headers: { "Content-Type": "application/json" }, ...opt, body: opt.body ? JSON.stringify(opt.body) : undefined });
+  const ct = r.headers.get("content-type") || "";
+  const body = ct.includes("json") ? await r.json() : await r.text();
+  if (!r.ok) throw new Error(body.error || r.statusText);
+  return body;
+};
+function age(iso) {
+  if (!iso) return "never";
+  const s = (Date.now() - Date.parse(iso)) / 1000;
+  if (s < 90) return "just now";
+  if (s < 3600) return Math.round(s / 60) + "m ago";
+  if (s < 86400) return Math.round(s / 3600) + "h ago";
+  return Math.round(s / 86400) + "d ago";
+}
+let toastT;
+function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), 2600); }
+
+let watches = [], findings = [], selected = null, tab = "presets", research = null;
+
+// ------------------------------------------------------------- watches
+async function loadWatches() {
+  watches = await api("/watches");
+  renderWatches(); renderPresets(); renderScore();
+}
+function renderWatches() {
+  const list = $("#watchList");
+  if (!watches.length) { list.innerHTML = `<div class="empty"><div class="glyph">[ ]</div>Add a preset from the right, or + Add your own page.</div>`; return; }
+  list.innerHTML = watches.map((w) => `
+    <div class="watch ${selected === w.id ? "sel" : ""}" data-id="${w.id}">
+      <div class="lamp ${esc(w.status || "")}" title="${esc(w.status || "new")}"></div>
+      <div>
+        <div class="name">${esc(w.name)}</div>
+        <div class="meta">${esc(w.every)} · ${esc(w.kind)}${w.paused ? " · paused" : ""}${w.lastError ? " · <span style='color:var(--bad)'>" + esc(w.lastError) + "</span>" : ""}</div>
+        <div class="tags">${(w.tags || []).map((t) => `<span class="tag">${esc(t)}</span>`).join("")}</div>
+      </div>
+      <div class="age ${w.lastChanged && Date.now() - Date.parse(w.lastChanged) < 86400e3 ? "fresh" : ""}" title="last change / last check">${w.lastChanged ? "Δ " + age(w.lastChanged) : "—"}<br><span style="color:var(--faint)">✓ ${age(w.lastChecked)}</span></div>
+    </div>`).join("");
+  list.querySelectorAll(".watch").forEach((el) => el.onclick = () => { selected = el.dataset.id; tab = "detail"; renderAll(); });
+}
+
+// ------------------------------------------------------------- findings
+async function loadFindings() {
+  findings = await api("/findings");
+  renderFeed(); renderScore();
+}
+function renderFeed() {
+  const showAcked = $("#showAcked").checked;
+  let rows = findings.filter((f) => showAcked || !f.acked);
+  if (selected) rows = rows.filter((f) => f.watchId === selected);
+  $("#feedTitle").textContent = selected ? "Findings · " + ((watches.find((w) => w.id === selected) || {}).name || "") : "Findings";
+  $("#feedCount").textContent = rows.length ? rows.length + " shown" : "";
+  const feed = $("#feed");
+  if (!rows.length) { feed.innerHTML = `<div class="empty"><div class="glyph">~</div>Nothing has changed yet. The first visit to a page only records a baseline; findings appear from the second visit on.</div>`; return; }
+  feed.innerHTML = rows.map((f) => {
+    const cls = f.score >= 70 ? "hi" : f.score >= 40 ? "mid" : "lo";
+    return `<div class="finding ${f.acked ? "acked" : ""}" data-id="${f.id}">
+      <div class="top"><div class="score ${cls}">${f.score}</div><div class="title">${esc(f.watch)}</div><div class="when" title="${esc(f.when)}">${age(f.when)}${f.briefed ? " · briefed" : ""}</div></div>
+      <div class="summary">${esc(f.summary)}</div>
+      <div class="reasons">${esc((f.reasons || []).join(" · "))}</div>
+      <div class="acts">
+        ${f.acked ? "" : `<button data-ack="${f.id}">Acknowledge</button>`}
+        <button data-diff="${f.id}">Diff (${f.added.length}+ / ${f.removed.length}−)</button>
+        <a class="btn" href="${esc(f.url)}" target="_blank" rel="noopener">Open in The Wilds</a>
+      </div>
+      <div class="diff" id="diff-${f.id}" style="display:none">${f.added.map((l) => `<div class="add">${esc(l)}</div>`).join("")}${f.removed.map((l) => `<div class="del">${esc(l)}</div>`).join("")}</div>
+    </div>`;
+  }).join("");
+  feed.querySelectorAll("[data-ack]").forEach((b) => b.onclick = async () => { await api(`/findings/${b.dataset.ack}/ack`, { method: "POST" }); toast("Acknowledged"); loadFindings(); });
+  feed.querySelectorAll("[data-diff]").forEach((b) => b.onclick = () => { const d = $(`#diff-${b.dataset.diff}`); d.style.display = d.style.display === "none" ? "block" : "none"; });
+}
+$("#showAcked").onchange = renderFeed;
+
+// ------------------------------------------------------------- side panel
+document.querySelectorAll(".tabs button").forEach((b) => b.onclick = () => { tab = b.dataset.tab; renderSide(); });
+function renderSide() {
+  document.querySelectorAll(".tabs button").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
+  if (tab === "presets") renderPresets();
+  else if (tab === "detail") renderDetail();
+  else renderResearch();
+}
+function renderPresets() {
+  if (tab !== "presets") return;
+  const have = new Set(watches.map((w) => w.url));
+  $("#sidePanel").innerHTML = `<div class="overline" style="margin-bottom:6px">Healthcare HR sources · one click</div>` +
+    PRESETS.map((p) => {
+      const added = p.url && have.has(p.url);
+      return `<div class="preset ${added ? "added" : ""}" data-key="${p.key}">
+        <div><div class="p-name">${esc(p.name)}</div><div class="p-tag">${esc(p.tags.join(", "))} · ${esc(p.every)}${p.slot ? " · needs your URL" : ""}</div></div>
+        <span class="spacer"></span>
+        <button ${added ? "disabled" : ""}>${added ? "watching" : p.slot ? "set up…" : "watch"}</button>
+      </div>`;
+    }).join("") + `<p style="font-size:11.5px;color:var(--faint);margin-top:12px">Read-only. Lookout never logs in or submits a form, and reads any one source at most once an hour.</p>`;
+  $("#sidePanel").querySelectorAll(".preset button:not([disabled])").forEach((b) => b.onclick = () => {
+    const p = PRESETS.find((x) => x.key === b.closest(".preset").dataset.key);
+    openForm({ name: p.name, url: p.url, tags: p.tags.join(", "), every: p.every, kind: p.kind || "page", selectorHint: p.hint || "" }, p.slot);
+  });
+}
+function openForm(w = {}, slotHint) {
+  tab = "detail"; renderSide();
+  $("#sidePanel").innerHTML = `
+    <div class="overline" style="margin-bottom:10px">${w.id ? "Edit watch" : "New watch"}</div>
+    ${slotHint ? `<p style="font-size:12px;color:var(--warn);margin:0 0 10px">${esc(slotHint)}</p>` : ""}
+    <div class="field"><div class="lbl">Name</div><input id="f-name" value="${esc(w.name || "")}"></div>
+    <div class="field"><div class="lbl">URL</div><input id="f-url" value="${esc(w.url || "")}" placeholder="https://…"></div>
+    <div class="row">
+      <div class="field"><div class="lbl">Kind</div><select id="f-kind"><option value="page" ${w.kind !== "list" ? "selected" : ""}>page</option><option value="list" ${w.kind === "list" ? "selected" : ""}>list</option></select></div>
+      <div class="field"><div class="lbl">Every</div><select id="f-every">${["hourly", "daily", "weekly"].map((e) => `<option ${w.every === e ? "selected" : ""}>${e}</option>`).join("")}</select></div>
+    </div>
+    <div class="field"><div class="lbl">Tags (comma separated)</div><input id="f-tags" value="${esc(Array.isArray(w.tags) ? w.tags.join(", ") : w.tags || "")}"></div>
+    <div class="row">
+      <div class="field"><div class="lbl">Phrase hint (boosts score)</div><input id="f-hint" value="${esc(w.selectorHint || "")}" placeholder="e.g. effective date"></div>
+      <div class="field"><div class="lbl">Brief at score ≥</div><input id="f-thr" type="number" min="0" max="100" value="${w.threshold ?? 40}"></div>
+    </div>
+    <div class="acts"><button class="primary" id="f-save">${w.id ? "Save" : "Add watch"}</button><button id="f-cancel">Cancel</button></div>`;
+  $("#f-cancel").onclick = () => { tab = w.id ? "detail" : "presets"; renderSide(); };
+  $("#f-save").onclick = async () => {
+    const body = { name: $("#f-name").value, url: $("#f-url").value, kind: $("#f-kind").value, every: $("#f-every").value, tags: $("#f-tags").value, selectorHint: $("#f-hint").value, threshold: Number($("#f-thr").value) };
+    try {
+      const saved = w.id ? await api(`/watches/${w.id}`, { method: "PATCH", body }) : await api("/watches", { method: "POST", body });
+      selected = saved.id; toast(w.id ? "Saved" : "Watch added — first check records a baseline");
+      await loadWatches(); tab = "detail"; renderAll();
+      if (!w.id) checkOne(saved.id);
+    } catch (e) { toast(e.message); }
+  };
+}
+$("#btnAdd").onclick = () => openForm();
+
+async function renderDetail() {
+  const w = watches.find((x) => x.id === selected);
+  if (!w) { $("#sidePanel").innerHTML = `<div class="empty"><div class="glyph">←</div>Select a watch to see its detail and latest snapshot.</div>`; return; }
+  $("#sidePanel").innerHTML = `<div class="detail">
+    <div style="font-weight:600;font-size:15px;margin-bottom:8px">${esc(w.name)}</div>
+    <div class="kv">
+      <div class="k">URL</div><div class="v"><a href="${esc(w.url)}" target="_blank" rel="noopener">${esc(w.url)}</a></div>
+      <div class="k">Status</div><div class="v">${esc(w.status || "new")}${w.lastError ? ` — <span style="color:var(--bad)">${esc(w.lastError)}</span>` : ""}</div>
+      <div class="k">Read via</div><div class="v">${esc(w.via || "—")}</div>
+      <div class="k">Schedule</div><div class="v">${esc(w.every)}${w.paused ? " (paused)" : ""} · brief ≥ ${w.threshold ?? 40}</div>
+      <div class="k">Checked</div><div class="v">${age(w.lastChecked)}</div>
+      <div class="k">Changed</div><div class="v">${age(w.lastChanged)}</div>
+      <div class="k">Tags</div><div class="v">${(w.tags || []).map((t) => `<span class="tag">${esc(t)}</span>`).join(" ") || "—"}</div>
+    </div>
+    <div class="acts">
+      <button class="primary" id="d-check">Check now</button>
+      <button id="d-edit">Edit</button>
+      <button id="d-pause">${w.paused ? "Resume" : "Pause"}</button>
+      <button id="d-all">All findings</button>
+      <button id="d-del" style="border-color:var(--bad);color:var(--bad)">Remove</button>
+    </div>
+    <div class="overline" style="margin:14px 0 6px">Latest snapshot</div>
+    <div class="dossier" id="d-snap">loading…</div>
+  </div>`;
+  $("#d-check").onclick = () => checkOne(w.id);
+  $("#d-edit").onclick = () => openForm(w);
+  $("#d-pause").onclick = async () => { await api(`/watches/${w.id}`, { method: "PATCH", body: { paused: !w.paused } }); await loadWatches(); renderDetail(); };
+  $("#d-all").onclick = () => { selected = null; renderAll(); };
+  $("#d-del").onclick = async () => { if (!confirm(`Remove watch "${w.name}"? Snapshots stay on disk.`)) return; await api(`/watches/${w.id}`, { method: "DELETE" }); selected = null; toast("Removed"); await loadWatches(); renderAll(); };
+  try { const full = await api(`/watches/${w.id}`); $("#d-snap").textContent = full.snapshot ? full.snapshot.slice(0, 20000) : "(no snapshot yet)"; } catch {}
+}
+
+async function checkOne(idv) {
+  const w = watches.find((x) => x.id === idv); if (w) { w.status = "checking"; renderWatches(); }
+  try {
+    const r = await api(`/check/${idv}`, { method: "POST" });
+    const res = r.result;
+    toast(res.baseline ? `Baseline recorded (${res.lines} lines)` : res.changed ? `Change scored ${res.finding.score}` : res.skipped ? "Skipped: " + res.skipped : "No change");
+  } catch (e) { toast("Check failed: " + e.message); }
+  await loadWatches(); await loadFindings(); if (tab === "detail") renderDetail();
+}
+$("#btnCheckAll").onclick = async () => {
+  $("#btnCheckAll").disabled = true;
+  // Sequential on purpose: the server serialises fetches anyway, and firing
+  // all at once only makes the lamps lie about what is actually in flight.
+  for (const w of watches.filter((x) => !x.paused)) await checkOne(w.id);
+  $("#btnCheckAll").disabled = false;
+};
+
+// ------------------------------------------------------------- research
+function renderResearch() {
+  $("#sidePanel").innerHTML = `
+    <div class="overline" style="margin-bottom:10px">Research dossier</div>
+    <p style="font-size:12px;color:var(--dim);margin:0 0 10px">Reads up to 8 pages and bundles their text under your question. No model is involved; the dossier is for you (or to paste into Kenoma).</p>
+    <div class="field"><div class="lbl">Question</div><textarea id="r-q" placeholder="e.g. What changed in the state's CNA renewal requirements this year?">${esc(research?.question || "")}</textarea></div>
+    <div class="field"><div class="lbl">URLs (one per line)</div><textarea id="r-urls" placeholder="https://…">${esc(research?.urls || "")}</textarea></div>
+    <div class="acts"><button class="primary" id="r-go">Build dossier</button>${research?.markdown ? `<button id="r-copy">Copy</button><button id="r-dl">Export .md</button>` : ""}</div>
+    ${research?.markdown ? `<div class="dossier">${esc(research.markdown)}</div>` : ""}`;
+  $("#r-go").onclick = async () => {
+    const question = $("#r-q").value, urls = $("#r-urls").value;
+    research = { question, urls }; $("#r-go").disabled = true; $("#r-go").textContent = "Reading…";
+    try { const r = await api("/research", { method: "POST", body: { question, urls: urls.split(/\n+/).map((s) => s.trim()).filter(Boolean) } }); research.markdown = r.markdown; toast(`${r.sources.length} source(s) read`); }
+    catch (e) { toast(e.message); }
+    renderResearch();
+  };
+  if ($("#r-copy")) $("#r-copy").onclick = () => navigator.clipboard.writeText(research.markdown).then(() => toast("Copied"));
+  if ($("#r-dl")) $("#r-dl").onclick = () => download("research-dossier.md", research.markdown);
+}
+function download(name, text) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], { type: "text/markdown" })); a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+// ------------------------------------------------------------- scorecard
+async function renderScore() {
+  let sc; try { sc = await api("/scorecard"); } catch { return; }
+  const grid = $("#scoreGrid");
+  if (!sc.rows.length) { grid.innerHTML = `<div class="empty" style="padding:14px">No sources yet</div>`; return; }
+  const max = Math.max(1, ...sc.rows.flatMap((r) => Object.values(r.counts)));
+  grid.innerHTML = sc.rows.map((r) => {
+    const total = Object.values(r.counts).reduce((a, b) => a + b, 0);
+    return `<div class="score-card" title="${esc(r.name)}"><div class="n">${esc(r.name)}</div>
+      <div class="bars">${sc.weeks.map((wk) => `<div class="${r.counts[wk] ? "hit" : ""}" style="height:${Math.max(4, (r.counts[wk] / max) * 100)}%" title="week of ${wk}: ${r.counts[wk]}"></div>`).join("")}</div>
+      <div class="m"><span>${total} change${total === 1 ? "" : "s"} / 8 wk</span><span>peak ${r.maxScore}</span></div></div>`;
+  }).join("");
+}
+
+// ------------------------------------------------------------- status
+async function renderStatus() {
+  try {
+    const s = await api("/status");
+    $("#status").innerHTML = `<span class="lamp ${s.shell ? "on" : ""}"></span>${s.shell ? `shell on :${s.shell.port}${s.shell.token ? "" : " (no token)"}` : "shell not up · direct fetch"} · ${s.pending} unread`;
+  } catch { $("#status").innerHTML = `<span class="lamp"></span>server unreachable`; }
+}
+
+function renderAll() { renderWatches(); renderFeed(); renderSide(); }
+(async () => {
+  await loadWatches(); await loadFindings(); renderAll(); renderStatus();
+  setInterval(async () => { await loadWatches(); await loadFindings(); renderStatus(); if (tab === "detail" && !$("#f-save")) renderDetail(); }, 30000);
+})();
+</script>
+</body>
+</html>

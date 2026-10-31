@@ -1,0 +1,98 @@
+{
+  "name": "ifreglen",
+  "version": "0.1.0",
+  "description": "Ifreglen — the desktop shell that houses the work apps and talks to Professional Goat.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "start:dev": "electron . --devtools",
+    "test": "node test.js",
+    "test:clip": "electron cliptest.js",
+    "test:trove": "electron trovetest.js",
+    "icons": "python make_icons.py",
+    "shortcut": "python make_icons.py && python make_shortcut.py",
+    "dist": "npx --yes electron-builder@^25",
+    "dist:win": "npx --yes electron-builder@^25 --win",
+    "dist:linux": "npx --yes electron-builder@^25 --linux",
+    "dist:mac": "npx --yes electron-builder@^25 --mac",
+    "test:qr": "node lib/qr-test.js",
+    "test:roots": "node lib/roots-test.js",
+    "test:briefs": "node lib/briefs-test.js",
+    "test:morning": "node lib/morning-test.js",
+    "test:mutsync": "node lib/mutsync-test.js",
+    "test:watch": "node lib/watch-test.js",
+    "test:roam": "node roamtest.js",
+    "test:wilds-mcp": "node wildsmcptest.js",
+    "test:cartridge": "node cartridgetest.js",
+    "test:herald": "node lib/herald-test.js && node heraldtest.js",
+    "test:comms": "node lib/comms-test.js && node commstest.js",
+    "test:beside": "node besidetest.js",
+    "test:netpolicy": "node lib/netpolicy-test.js",
+    "test:egress": "node egresstest.js"
+  },
+  "devDependencies": {
+    "electron": "^43.0.0"
+  },
+  "build": {
+    "appId": "com.ifreglen.shell",
+    "productName": "Ifreglen",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "preload-chrome.js",
+      "preload-roam.js",
+      "preload-herald.js",
+      "preload-beside.js",
+      "apps.config.json",
+      "lib/**/*",
+      "renderer/**/*",
+      "apps/**/*",
+      "build/icon.*"
+    ],
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Ifreglen"
+    },
+    "linux": {
+      "icon": "build/icons",
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Development"
+    },
+    "mac": {
+      "icon": "build/icon.icns",
+      "category": "public.app-category.developer-tools"
+    }
+  },
+  "_comment_native": "No native dependencies on purpose. better-sqlite3 would need a per-Electron-version rebuild, the worst part of Electron on Windows. Everything the shell records is JSONL.",
+  "_comment_deps": "electron-builder is deliberately NOT a devDependency. It is only needed to produce installers, and it drags in ~45 extra packages carrying the audit warnings you would otherwise see on every install. The dist scripts fetch it on demand via npx. Never run 'npm audit fix --force' here: it will happily downgrade or swap Electron itself and break the app to silence warnings about build-time-only code that never ships.",
+  "dependencies": {
+    "qrcode": "^1.5.4"
+  }
+}

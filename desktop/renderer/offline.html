@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Didn't load</title>
+<!--
+  What an app's view shows when its page did not load, instead of a blank
+  rectangle (main.js showOffline). It is told the app's name and Chromium's
+  error code and nothing else: never the address, which for a token-gated tile
+  carries its console key. The shell watches for the app to answer and loads
+  it back in by itself; "Try again", Enter and Ctrl+R ask for that now.
+
+  It speaks to the shell by its own URL's #fragment, read in main.js, so it
+  needs nothing from the app's preload. A reload of this page (Ctrl+R, F5, the
+  rail, live reload, a restarted server) means "load the app", not "show this
+  again", so a reload asks for a retry the same way.
+-->
+<link rel="stylesheet" href="tokens.css">
+<style>
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: radial-gradient(120% 80% at 50% 0%, #0D1020 0%, var(--bg) 60%);
+    color: var(--text); font: 13px/1.55 var(--sans);
+    display: grid; place-items: center; padding: 16px;
+  }
+  .card {
+    width: min(460px, 100%); background: var(--panel); border: 1px solid var(--rule);
+    border-left: 2px solid var(--ruby); border-radius: 10px; padding: 22px 22px 18px;
+    box-shadow: 0 22px 60px rgba(0,0,0,.55);
+  }
+  h1 { font: 500 21px/1.25 var(--serif); margin: 0 0 6px; letter-spacing: .01em; }
+  .why { color: var(--dim); margin: 0 0 14px; }
+  .watch { display: flex; align-items: center; gap: 9px; color: var(--dim); font-size: 12px; margin: 0 0 16px; }
+  .lamp { width: 8px; height: 8px; border-radius: 50%; background: var(--topaz); flex: none;
+          box-shadow: 0 0 0 0 rgba(217,161,91,.5); animation: breathe 2.4s ease-in-out infinite; }
+  @keyframes breathe { 50% { box-shadow: 0 0 0 6px rgba(217,161,91,0); opacity: .65; } }
+  @media (prefers-reduced-motion: reduce) { .lamp { animation: none; } }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  button {
+    font: 500 12px var(--sans); color: var(--text); background: var(--panel-2);
+    border: 1px solid var(--rule); border-radius: 6px; padding: 6px 13px; cursor: pointer;
+  }
+  button:hover, button:focus-visible { border-color: var(--occult); outline: none; }
+  button.go { border-color: #5a4a2a; }
+  .code { margin-left: auto; font: 11px var(--mono); color: var(--faint); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+  <main class="card" role="alert" aria-live="polite">
+    <h1 id="title">This app didn't load</h1>
+    <p class="why" id="why"></p>
+    <p class="watch" id="watch" hidden><span class="lamp" aria-hidden="true"></span><span id="watchSays">Watching for it. It opens here by itself the moment it answers.</span></p>
+    <div class="row">
+      <button class="go" id="retry" autofocus>Try again</button>
+      <button id="logs" hidden>Logs</button>
+      <span class="code" id="code"></span>
+    </div>
+  </main>
+<script>
+  const q = new URLSearchParams(location.search);
+  const app = q.get("app") || "This app";
+  const code = Number(q.get("code")) || 0;
+  const desc = (q.get("desc") || "").replace(/[^\w.:-]/g, "").slice(0, 60);
+  const kind = q.get("kind") || "";
+  const ask = (what) => { location.hash = `${what}-${Date.now()}`; };
+
+  // A reload of this page is a request for the app (see the note at the top).
+  const nav = performance.getEntriesByType("navigation")[0];
+  if (nav && nav.type === "reload") ask("retry");
+
+  // Chromium's codes, said plainly. Anything not listed falls to the last line.
+  const SAYS = {
+    "-102": "Nothing is answering at its address. Its server is not running, or is still starting.",
+    "-101": "The connection was cut off before the page arrived.",
+    "-100": "The connection was closed before the page arrived.",
+    "-324": "Its server answered with nothing at all.",
+    "-118": "It took too long to answer.",
+    "-7":   "It took too long to answer.",
+    "-105": "Its address could not be found. Is this machine online?",
+    "-106": "This machine is offline.",
+    "-109": "Its address can't be reached from this machine.",
+    "-21":  "The network changed while it was loading.",
+    "-6":   "Its file is missing from this machine.",
+    "-200": "Its certificate was refused.",
+  };
+  let why = SAYS[String(code)] || "Its page failed to load.";
+  if (kind === "static" && String(code) === "-6") {
+    why = "Its page is not on disk yet. If this app is still being built, come back once its index.html exists.";
+  }
+  document.title = `${app} didn't load`;
+  document.getElementById("title").textContent = `${app} didn't load`;
+  document.getElementById("why").textContent = why;
+  document.getElementById("code").textContent = desc ? `${desc} (${code})` : code ? `(${code})` : "";
+  if (q.get("auto")) document.getElementById("watch").hidden = false;
+  if (kind === "local") document.getElementById("logs").hidden = false;
+
+  document.getElementById("retry").onclick = () => ask("retry");
+  document.getElementById("logs").onclick = () => ask("logs");
+  // Enter anywhere; on a button it is that button's own click.
+  addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.repeat && !e.target.closest("button")) ask("retry"); });
+</script>
+</body>
+</html>

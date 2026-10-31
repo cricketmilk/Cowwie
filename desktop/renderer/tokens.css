@@ -1,0 +1,51 @@
+/* The shell's colours and type, in one place.
+
+   Every page under renderer/ used to carry its own copy of these, and the
+   copies had drifted into three palettes: the rail and The Wilds on one
+   ground, the Lounge and the Trove on a lighter one, Müt's bubble on a third.
+   Each page now links this file and keeps only what is its own.
+
+   The look is a sibling of Glamourwell's Well rather than a copy of it: the
+   same names for the same states, gilt kept for what needs you, Palatino and
+   Cascadia -- but none of the Well's moving sky, which is right for a page
+   you open and wrong for a rail that is on screen all day.
+
+   Gems: one meaning each, everywhere.
+     emerald   alive, ok              topaz     starting, warning, recording
+     ruby      down, error            sapphire  information
+     amethyst  busy, persona          gilt      needs you (restart owed, pair, join)
+
+   The font stacks name Windows' own faces first. They used to open with
+   ui-serif and ui-monospace, which Chromium honours only on macOS, so on
+   these machines the serif was always Georgia and never Palatino. */
+:root {
+  color-scheme: dark;
+
+  --bg:       #07080F;
+  --rail-hi:  #0C0E18;
+  --panel:    #12151F;
+  --panel-2:  #171B29;
+  --rule:     #232A3D;
+  --text:     #D6D2C4;
+  --dim:      #868C9C;   /* 5.6:1 on --bg: anything that informs */
+  --faint:    #646B7F;   /* 3.7:1: labels and decoration, not information */
+
+  --emerald:  #7FD6A8;
+  --ruby:     #E0697A;
+  --amethyst: #9B84C9;
+  --topaz:    #D9A15B;
+  --sapphire: #7FA7E0;
+  --gilt:     #D8B46A;
+
+  /* The names the pages were written with, kept as aliases of the gems. */
+  --ready:  var(--emerald);
+  --moss:   var(--emerald);
+  --signal: var(--topaz);
+  --lamp:   var(--topaz);
+  --occult: var(--amethyst);
+  --bad:    var(--ruby);
+
+  --serif: "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --sans:  "Segoe UI", system-ui, ui-sans-serif, sans-serif;
+  --mono:  "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
+}

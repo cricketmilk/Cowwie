@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Ifreglen</title>
+<link rel="stylesheet" href="tokens.css">
+<style>
+  /* The chrome is a rail now — a dark instrument column on the left edge,
+     not a strip of brass trim on top. Same dredged temperature as before:
+     void-indigo ground, bone text, phosphor for things alive, candle-amber
+     reserved for the act of recording, bruised violet for personas. The rail
+     should read like the spine of a cabinet: nameplates, status lamps, one
+     switch that matters. */
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: transparent; color: var(--text);
+    font-family: var(--sans); font-size: 12px;
+    -webkit-font-smoothing: antialiased; user-select: none;
+    overflow: hidden;
+  }
+  /* While an overlay is up the host view covers the whole window; the rail
+     stays put on the left and the backdrop dims the app behind. */
+  body.overlay .backdrop { display: block; }
+  .backdrop {
+    display: none; position: fixed; inset: 0; z-index: 40;
+    background: rgba(5, 7, 12, 0.6);
+    backdrop-filter: blur(7px) saturate(0.85);
+  }
+  /* Keyboard focus is part of the design, not an afterthought. */
+  :focus-visible { outline: 1.5px solid var(--ready); outline-offset: 1px; border-radius: 4px; }
+  /* One scrollbar voice everywhere something scrolls. */
+  ::-webkit-scrollbar { width: 9px; height: 9px; }
+  ::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 5px; border: 2px solid var(--bg); }
+  ::-webkit-scrollbar-thumb:hover { background: var(--faint); }
+  ::-webkit-scrollbar-track { background: transparent; }
+
+  /* ------------------------------------------------------------- the rail */
+  .rail {
+    position: fixed; left: 0; top: 0; bottom: 0; width: 236px; z-index: 45;
+    display: flex; flex-direction: column;
+    background: linear-gradient(180deg, var(--rail-hi), var(--bg) 42%);
+    border-right: 1px solid var(--rule);
+  }
+  body.min .rail { width: 64px; }
+
+  .brand {
+    display: flex; align-items: center; gap: 9px;
+    padding: 14px 14px 12px; cursor: pointer; flex: none;
+  }
+  .brand svg { display: block; flex: none; }
+  .brand .word {
+    font-family: var(--serif); font-size: 12px; font-weight: 500;
+    letter-spacing: 0.3em; text-transform: uppercase; color: var(--dim);
+    flex: 1; overflow: hidden; white-space: nowrap;
+  }
+  .brand:hover .word { color: var(--text); }
+  .fold {
+    flex: none; background: none; border: 0; cursor: pointer; padding: 3px 5px;
+    color: var(--faint); font-family: var(--mono); font-size: 11px;
+    border-radius: 4px;
+  }
+  .fold:hover { color: var(--text); background: var(--panel); }
+  body.min .brand { justify-content: center; padding: 14px 0 12px; }
+  body.min .brand .word, body.min .fold { display: none; }
+  /* Collapsed: the fold control becomes its own row under the sigil. */
+  .unfold {
+    display: none; margin: 0 auto 4px; background: none; border: 0;
+    color: var(--faint); font-family: var(--mono); font-size: 11px;
+    cursor: pointer; padding: 2px 8px; border-radius: 4px;
+  }
+  .unfold:hover { color: var(--text); background: var(--panel); }
+  body.min .unfold { display: block; }
+
+  /* Per-app controls: back, forward, reload, find, devtools, logs, live. */
+  .navctl {
+    display: flex; align-items: center; gap: 2px;
+    padding: 2px 10px 8px; flex: none; flex-wrap: wrap;
+  }
+  .navctl button {
+    flex: none; background: none; border: 1px solid transparent; border-radius: 5px;
+    color: var(--dim); font-family: var(--mono); font-size: 12px;
+    padding: 4px 7px; cursor: pointer; line-height: 1.2;
+  }
+  .navctl button:hover:not(:disabled) { color: var(--text); background: var(--panel); }
+  .navctl button:disabled { opacity: 0.22; cursor: default; }
+  .navctl button.on { color: var(--ready); }
+  .chip {
+    font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 9px;
+    color: var(--occult); border: 1px solid var(--rule); border-radius: 4px;
+    padding: 2px 6px; cursor: pointer; margin-left: 2px;
+  }
+  .chip:hover { border-color: var(--occult); }
+  .chip[hidden] { display: none; }
+  body.min .navctl { justify-content: center; padding: 0 4px 6px; }
+  body.min .navctl .lesser, body.min .chip { display: none; }
+
+  /* Find bar, inline in the rail. */
+  .findbar {
+    display: flex; align-items: center; gap: 4px;
+    padding: 0 12px 10px; flex: none;
+  }
+  .findbar[hidden] { display: none; }
+  .findbar input {
+    flex: 1; min-width: 0; background: var(--panel); border: 1px solid var(--rule);
+    border-radius: 5px; color: var(--text); outline: 0;
+    font-family: var(--mono); font-size: 11px; padding: 5px 8px;
+  }
+  .findbar input:focus { border-color: var(--ready); }
+  .findbar .tally { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--dim); font-size: 9px; min-width: 30px; text-align: center; }
+  .findbar button {
+    flex: none; background: none; border: 0; color: var(--dim); cursor: pointer;
+    font-family: var(--mono); font-size: 11px; padding: 3px 4px; border-radius: 4px;
+  }
+  .findbar button:hover { color: var(--text); background: var(--panel); }
+
+  /* --------------------------------------------------------- the app list */
+  .apps {
+    flex: 1; overflow-y: auto; overflow-x: hidden; padding: 2px 8px 8px;
+    scrollbar-width: thin; scrollbar-color: var(--rule) transparent;
+  }
+  .sect {
+    font-family: var(--mono); font-size: 8.5px; font-weight: 500;
+    letter-spacing: 0.2em; text-transform: uppercase; color: var(--faint);
+    padding: 14px 8px 5px;
+  }
+  body.min .sect { padding: 10px 0 2px; text-align: center; overflow: hidden; height: 18px; }
+  body.min .sect::before { content: "···"; letter-spacing: 0.1em; }
+  body.min .sect span { display: none; }
+
+  .item {
+    display: flex; align-items: center; gap: 9px;
+    padding: 6px 8px; border-radius: 7px; cursor: pointer;
+    position: relative; margin: 1px 0;
+    transition: background 0.12s;
+  }
+  .item:hover { background: var(--panel); }
+  .item.active { background: var(--panel-2); }
+  /* The candle accent: a 2px lamp on the active nameplate. */
+  .item.active::before {
+    content: ""; position: absolute; left: -8px; top: 7px; bottom: 7px;
+    width: 2px; border-radius: 2px; background: var(--signal);
+  }
+  /* The app's drawn sigil, bare — no chip, no frame. Hover and active let a
+     breath of the app's accent (--acc, set inline per item) glow through. */
+  .glyph {
+    flex: none; width: 30px; height: 30px;
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+  }
+  .glyph svg { width: 24px; height: 24px; display: block; transition: filter 0.15s, transform 0.15s; }
+  .item:hover .glyph svg, .item.active .glyph svg {
+    filter: drop-shadow(0 0 7px color-mix(in srgb, var(--acc, var(--dim)) 55%, transparent));
+  }
+  .item:hover .glyph svg { transform: scale(1.08); }
+  /* Status lamp rides the glyph's corner so it survives the collapsed rail. */
+  .glyph i {
+    position: absolute; right: -2px; bottom: -2px;
+    width: 7px; height: 7px; border-radius: 50%;
+    border: 2px solid var(--bg); display: none;
+  }
+  .item.running .glyph i { display: block; background: var(--ready); }
+  .item.open:not(.running) .glyph i { display: block; background: var(--dim); }
+  .item.capturing .glyph i {
+    display: block; background: var(--signal);
+    animation: pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.25} }
+  @media (prefers-reduced-motion: reduce) { .item.capturing .glyph i { animation: none; } }
+
+  .meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+  .iname {
+    font-size: 12.5px; font-weight: 450; letter-spacing: 0.01em; color: var(--dim);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.25;
+  }
+  .item:hover .iname, .item.active .iname { color: var(--text); }
+  .ipersona {
+    font-family: var(--mono); font-size: 8.5px; letter-spacing: 0.07em;
+    color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .item.active .ipersona { color: var(--occult); }
+  .imb {
+    flex: none; font-family: var(--mono); font-variant-numeric: tabular-nums;
+    font-size: 9px; color: var(--faint);
+  }
+  .item .rest {
+    flex: none; display: none; background: none; border: 0; cursor: pointer;
+    color: var(--faint); font-family: var(--mono); font-size: 11px;
+    padding: 2px 4px; border-radius: 4px;
+  }
+  .item .rest:hover { color: var(--signal); }
+  .item:hover .rest { display: block; }
+  .item:hover .imb { display: none; }
+  .imb:empty { display: none; }
+  body.min .item { justify-content: center; padding: 6px 0; }
+  body.min .meta, body.min .imb, body.min .item .rest { display: none !important; }
+  body.min .item.active::before { left: -6px; }
+
+  /* ----------------------------------------------------------- rail foot */
+  .foot { flex: none; padding: 8px 12px 12px; border-top: 1px solid var(--rule); }
+  body.min .foot { padding: 8px 6px 10px; }
+  #cap {
+    width: 100%; padding: 7px 10px; margin-bottom: 8px;
+    background: transparent; color: var(--text); cursor: pointer;
+    border: 1px solid var(--rule); border-radius: 6px;
+    font-family: var(--sans); font-size: 10px; font-weight: 560;
+    letter-spacing: 0.1em; text-transform: uppercase;
+  }
+  #cap:hover:not(:disabled) { border-color: var(--signal); color: var(--signal); }
+  #cap:disabled { display: none; }
+  #cap.on { border-color: var(--signal); color: var(--signal); }
+  #cap.on .cnt { font-family: var(--mono); font-variant-numeric: tabular-nums; text-transform: none; letter-spacing: 0; }
+  body.min #cap { padding: 7px 0; font-size: 9px; letter-spacing: 0; }
+
+  .msg {
+    color: var(--dim); font-size: 10.5px; line-height: 1.45;
+    max-height: 2.9em; overflow: hidden; margin-bottom: 7px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  }
+  .msg:empty { display: none; }
+  .msg.err { color: var(--ruby); cursor: pointer; }
+  body.min .msg { display: none; }
+  .footrow { display: flex; align-items: center; gap: 6px; }
+  .count {
+    font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 9.5px;
+    color: var(--faint); cursor: pointer; flex: 1;
+    overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  }
+  .count:hover { color: var(--text); }
+  .kbd {
+    font-family: var(--mono); font-size: 8.5px; color: var(--faint);
+    border: 1px solid var(--rule); border-radius: 4px; padding: 2px 5px;
+    letter-spacing: 0.05em; white-space: nowrap; cursor: pointer; flex: none;
+  }
+  .kbd:hover { color: var(--ready); border-color: var(--ready); }
+  /* A restart owed: lit, not merely present, because it is the one thing in
+     the foot that is asking for something. */
+  .kbd.update { color: var(--ready); border-color: var(--ready); }
+  .addbtn {
+    flex: none; background: none; border: 1px solid var(--rule); border-radius: 4px;
+    color: var(--dim); font-family: var(--mono); font-size: 10px;
+    padding: 2px 7px; cursor: pointer;
+  }
+  .addbtn:hover { color: var(--ready); border-color: var(--ready); }
+  body.min .footrow { flex-direction: column; gap: 5px; }
+  body.min .count { flex: none; }
+  body.min .kbd { display: none; }
+
+  /* ----------------------------------------------- overlay surface shells */
+  .surface {
+    position: fixed; inset: 0; z-index: 60;
+    display: flex; align-items: flex-start; justify-content: center;
+    padding: 90px 20px 40px;
+  }
+  .surface[hidden] { display: none; }
+  .shell footer {
+    display: flex; align-items: center; gap: 10px; padding: 12px 16px;
+    border-top: 1px solid var(--rule); justify-content: flex-end; flex: none;
+  }
+  .shell input.palin {
+    background: var(--panel); border: 1px solid var(--rule); border-radius: 5px;
+    color: var(--text); font-family: var(--mono); font-size: 12px; padding: 6px 8px;
+  }
+  .shell input.palin:focus { border-color: var(--ready); outline: 0; }
+  .shell input.palin::placeholder { color: var(--faint); }
+  .mono { font-family: var(--mono); }
+  .grow { flex: 1; }
+  .shell {
+    display: flex; flex-direction: column; max-height: 100%;
+    background: var(--bg); border: 1px solid var(--rule); border-radius: 9px;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.55);
+  }
+  .shell header {
+    display: flex; align-items: center; gap: 10px; padding: 12px 16px;
+    border-bottom: 1px solid var(--rule); flex: none;
+  }
+  .shell header b {
+    font-family: var(--sans); font-size: 11px; letter-spacing: 0.13em;
+    text-transform: uppercase; font-weight: 560;
+  }
+  .shell header .dim { flex: 1; color: var(--dim); font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .shell header input {
+    background: var(--panel); border: 1px solid var(--rule); border-radius: 4px;
+    color: var(--text); outline: 0; font-family: var(--mono); font-size: 10px;
+    padding: 4px 8px; width: 170px;
+  }
+  .shell header input:focus { border-color: var(--ready); }
+  .xbtn {
+    background: none; border: 0; color: var(--dim); cursor: pointer;
+    font-family: var(--mono); font-size: 12px; padding: 3px 6px; border-radius: 4px;
+  }
+  .xbtn:hover { color: var(--text); background: var(--panel); }
+  .obtn {
+    background: transparent; border: 1px solid var(--rule); border-radius: 5px;
+    color: var(--text); cursor: pointer; padding: 5px 11px;
+    font-family: var(--sans); font-size: 10px; font-weight: 560;
+    letter-spacing: 0.09em; text-transform: uppercase;
+  }
+  .obtn:hover:not(:disabled) { border-color: var(--ready); color: var(--ready); }
+  .obtn:disabled { opacity: 0.3; cursor: default; }
+  .dim { color: var(--dim); }
+  .pad { padding: 16px; line-height: 1.6; }
+
+  /* Command palette */
+  #pal .shell { width: min(580px, 94vw); max-height: min(480px, 82vh); }
+  #pal input.palin {
+    background: none; border: 0; outline: 0; color: var(--text); width: auto;
+    font-family: var(--mono); font-size: 13px; padding: 14px 16px;
+    border-bottom: 1px solid var(--rule);
+  }
+  #pal input.palin::placeholder { color: var(--dim); }
+  #pal ul { list-style: none; margin: 0; padding: 6px 0; overflow-y: auto; }
+  #pal li {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 16px; cursor: pointer; font-size: 12px;
+  }
+  #pal li.sel, #pal li:hover { background: var(--panel); }
+  #pal li .verb { color: var(--ready); font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; min-width: 54px; }
+  #pal li .hint { margin-left: auto; color: var(--dim); font-family: var(--mono); font-size: 9.5px; }
+  #pal .none { padding: 15px 16px; color: var(--dim); }
+
+  /* Log drawer */
+  #logsheet .shell { width: min(880px, 94vw); flex: 1; }
+  #logsheet { padding-top: 60px; }
+  #logsheet pre {
+    flex: 1; margin: 0; padding: 13px 16px; overflow: auto;
+    font-family: var(--mono); font-size: 11px; line-height: 1.5;
+    color: var(--text); white-space: pre-wrap; word-break: break-word;
+    user-select: text;
+  }
+  /* ANSI colours from dev-server output, mapped onto the shell's palette so
+     vite's greens and webpack's reds speak the house language. */
+  .a-b { font-weight: 600; }
+  .a-2 { opacity: 0.6; }
+  .a30, .a90 { color: var(--faint); }
+  .a31, .a91 { color: #D97B6B; }
+  .a32, .a92 { color: var(--ready); }
+  .a33, .a93 { color: var(--signal); }
+  .a34, .a94 { color: #6FBFD9; }
+  .a35, .a95 { color: var(--occult); }
+  .a36, .a96 { color: #6FD1CF; }
+  .a37, .a97 { color: var(--text); }
+
+  /* Performance */
+  #perf .shell { width: min(760px, 94vw); }
+  #perf .rows { overflow-y: auto; padding: 4px 0; }
+  .prow {
+    display: flex; align-items: center; gap: 12px; padding: 10px 18px;
+    border-bottom: 1px solid rgba(35,42,61,0.5);
+  }
+  .prow:last-child { border-bottom: 0; }
+  .prow .pname { min-width: 170px; font-size: 12.5px; }
+  .prow .pname .state { color: var(--faint); font-family: var(--mono); font-size: 8.5px; margin-left: 8px; letter-spacing: 0.1em; text-transform: uppercase; }
+  .prow .pname .state.here { color: var(--signal); }
+  .prow .track { flex: 1; height: 5px; border-radius: 3px; background: var(--panel); overflow: hidden; }
+  .prow .fill { height: 100%; background: var(--occult); border-radius: 3px; }
+  .prow .spk { flex: none; display: block; opacity: 0.9; }
+  .prow .num { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 10.5px; color: var(--dim); min-width: 74px; text-align: right; }
+  .prow .num b { color: var(--text); font-weight: 500; }
+  .prow .obtn { padding: 3px 9px; font-size: 9px; }
+  #perf footer {
+    display: flex; align-items: center; gap: 16px; padding: 11px 18px;
+    border-top: 1px solid var(--rule); color: var(--dim);
+    font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 10.5px;
+  }
+  #perf footer b { color: var(--text); font-weight: 500; }
+  #perf .none { padding: 20px 18px; color: var(--dim); font-style: italic; }
+
+  .clipdest.off { opacity: 0.45; }
+
+  /* Quick-add */
+  #clip .shell { width: min(600px, 94vw); }
+  #clip .clipbody {
+    padding: 0 16px 4px; color: var(--dim); font-size: 11.5px; line-height: 1.5;
+    min-height: 0; max-height: 260px; overflow-y: auto;
+  }
+  #clip .clipbody:empty { display: none; }
+  #clip .card {
+    display: flex; gap: 12px; align-items: flex-start;
+    padding: 12px 0 4px;
+  }
+  #clip .card img {
+    width: 84px; height: 84px; object-fit: cover; border-radius: 7px;
+    border: 1px solid var(--rule); flex: none; background: var(--panel);
+  }
+  #clip .card .t { color: var(--text); font-size: 12.5px; line-height: 1.35; }
+  #clip .card .u { color: var(--faint); font-family: var(--mono); font-size: 9.5px; word-break: break-all; }
+  #clip footer {
+    display: flex; align-items: center; gap: 14px; padding: 11px 16px;
+    border-top: 1px solid var(--rule);
+  }
+  #clip .grow { flex: 1; }
+  .clipdest {
+    display: flex; align-items: center; gap: 6px;
+    font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.06em;
+    color: var(--dim); text-transform: uppercase; cursor: pointer;
+  }
+  .clipdest input { accent-color: var(--ready); }
+  .clipdest select {
+    background: var(--panel); border: 1px solid var(--rule); border-radius: 4px;
+    color: var(--text); font-family: var(--mono); font-size: 10px; padding: 3px 5px;
+    max-width: 130px;
+  }
+  body.dropping .shell { border-color: var(--ready); }
+
+  /* Discovery sheet */
+  #sheet .shell { width: min(700px, 94vw); }
+  #sheet footer { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-top: 1px solid var(--rule); justify-content: flex-end; }
+  .found { overflow-y: auto; padding: 6px 0; }
+  .proj {
+    display: flex; align-items: center; gap: 10px; padding: 9px 16px;
+    border-bottom: 1px solid rgba(35,42,61,0.5); cursor: pointer;
+  }
+  .proj:hover { background: var(--panel); }
+  .proj input { accent-color: var(--ready); }
+  .proj .pname { min-width: 150px; }
+  .proj .pkind { font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ready); min-width: 58px; }
+  .proj .pcmd { flex: 1; color: var(--dim); font-family: var(--mono); font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .proj.dup { opacity: 0.45; }
+  .proj.dup .pkind { color: var(--dim); }
+  .proj .pkind.bad { color: var(--ruby); }
+  #forge .shell { width: min(640px, 94vw); }
+
+  /* Absorb sheet */
+  #absorb .shell { width: min(560px, 94vw); }
+  #absorb footer { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-top: 1px solid var(--rule); justify-content: flex-end; }
+  #absorb .found { padding: 12px 16px; }
+  .absorb-field { display: flex; align-items: center; gap: 12px; margin: 10px 0; }
+  .absorb-field label { min-width: 90px; color: var(--dim); font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; }
+  .absorb-field input.palin { flex: 1; min-width: 0; background: var(--panel); border: 1px solid var(--rule); border-radius: 5px; color: var(--text); font-family: var(--mono); font-size: 12px; padding: 6px 8px; }
+  .absorb-field input.palin:focus { border-color: var(--ready); outline: 0; }
+  .absorb-caps { display: flex; flex-wrap: wrap; gap: 8px; flex: 1; }
+  .absorb-caps label { display: flex; align-items: center; gap: 5px; min-width: 0; color: var(--text); font-family: var(--sans); font-size: 11px; text-transform: none; letter-spacing: 0; cursor: pointer; }
+  .absorb-caps input { accent-color: var(--ready); }
+</style>
+</head>
+<body>
+  <div class="backdrop" id="backdrop"></div>
+
+  <div class="rail">
+    <div class="brand" id="home" title="Ifreglen — home">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+        <!-- the sigil: an open eye held in a downward triad -->
+        <path d="M12 2.6 L22 20.4 L2 20.4 Z" stroke="#79808F" stroke-width="1.4" fill="none"/>
+        <ellipse cx="12" cy="14.6" rx="4.6" ry="2.9" stroke="#7FD6A8" stroke-width="1.3" fill="none"/>
+        <circle cx="12" cy="14.6" r="1.5" fill="#D9A15B"/>
+      </svg>
+      <span class="word">Ifreglen</span>
+      <button class="fold" id="fold" title="Collapse the rail">«</button>
+    </div>
+    <button class="unfold" id="unfold" title="Expand the rail">»</button>
+
+    <div class="navctl">
+      <button id="back" title="Back (Alt+←)" disabled>‹</button>
+      <button id="fwd" title="Forward (Alt+→)" disabled>›</button>
+      <button id="reload" class="lesser" title="Reload app (Ctrl+R / F5)">↻</button>
+      <button id="findBtn" class="lesser" title="Find in page (Ctrl+F)">⌕</button>
+      <button id="live" class="lesser" title="Live reload: edits reload automatically">◉</button>
+      <button id="logsBtn" class="lesser" title="Server logs (Ctrl+L)">≣</button>
+      <button id="devtools" class="lesser" title="Devtools (F12)">{}</button>
+      <span class="chip" id="zoomChip" hidden title="Zoom — click to reset (Ctrl+0)"></span>
+    </div>
+
+    <div class="findbar" id="findbar" hidden>
+      <input id="findIn" placeholder="find in page…" autocomplete="off" />
+      <span class="tally" id="findTally"></span>
+      <button id="findPrev" title="Previous (Shift+Enter)">↑</button>
+      <button id="findNext" title="Next (Enter)">↓</button>
+      <button id="findClose" title="Close (Esc)">✕</button>
+    </div>
+
+    <nav class="apps" id="navlist"></nav>
+
+    <div class="foot">
+      <div class="msg" id="msg"></div>
+      <div class="footrow">
+        <span class="count" id="count" title="Performance — memory per app, hibernation"></span>
+        <span class="kbd" id="palHint" title="Command palette — jump anywhere, run anything">Ctrl+K</span>
+        <button class="addbtn" id="add" title="Scan a folder for projects">+</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Command palette (Ctrl+K anywhere) -->
+  <div class="surface" id="pal" role="dialog" aria-modal="true" aria-label="Command palette" hidden>
+    <div class="shell">
+      <input class="palin" id="palIn" placeholder="jump to an app, run a command… (Ctrl+K)" autocomplete="off" />
+      <ul id="palList"></ul>
+    </div>
+  </div>
+
+  <!-- Live server log drawer -->
+  <div class="surface" id="logsheet" role="dialog" aria-modal="true" aria-label="Logs" hidden>
+    <div class="shell">
+      <header>
+        <b>Logs</b>
+        <span class="dim" id="logWho"></span>
+        <input id="logFilter" placeholder="filter…" autocomplete="off" />
+        <button class="xbtn" id="logCopy" title="Copy visible lines">⧉</button>
+        <button class="xbtn" id="logClose">✕</button>
+      </header>
+      <pre id="logBody"></pre>
+    </div>
+  </div>
+
+  <!-- Performance: renderer memory per open view, CPU, hibernation -->
+  <div class="surface" id="perf" role="dialog" aria-modal="true" aria-label="Performance" hidden>
+    <div class="shell">
+      <header>
+        <b>Performance</b>
+        <span class="dim">hibernate what you're not using — personas survive it</span>
+        <button class="obtn" id="restAll" title="Hibernate every open view except the active app and Home">Hibernate idle</button>
+        <button class="xbtn" id="perfClose">✕</button>
+      </header>
+      <div class="rows" id="perfRows"></div>
+      <footer>
+        <span>whole shell <b id="perfTotal">–</b></span>
+        <span id="perfProcs"></span>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Discovery sheet: scan a folder, add what it finds -->
+  <div class="surface" id="sheet" role="dialog" aria-modal="true" aria-label="Add projects" hidden>
+    <div class="shell">
+      <header>
+        <b>Add projects</b>
+        <span class="dim" id="sheetDir">no folder chosen</span>
+        <button class="xbtn" id="sheetClose">✕</button>
+      </header>
+      <div class="found" id="found">
+        <p class="dim pad">Choose a folder that contains your project folders.
+           Each one is detected by what's inside it — package.json, manage.py,
+           index.html — and given access only to its own directory.</p>
+      </div>
+      <footer>
+        <button class="obtn" id="browse">Choose folder…</button>
+        <button class="obtn" id="importManifest" title="Import a ifreglen-apps.json file">Import manifest…</button>
+        <button class="obtn" id="absorbBtn" title="Absorb a single project folder">Absorb project…</button>
+        <button class="obtn" id="addSel" disabled>Add selected</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Manifest import sheet -->
+  <div class="surface" id="manif" role="dialog" aria-modal="true" aria-label="Import manifest" hidden>
+    <div class="shell">
+      <header>
+        <b>Import manifest</b>
+        <span class="dim" id="manifFile">no file chosen</span>
+        <button class="xbtn" id="manifClose">✕</button>
+      </header>
+      <div class="found" id="manifBody">
+        <p class="dim pad">Choose a <code>ifreglen-apps.json</code> file. Paths inside it are relative to the file itself.</p>
+      </div>
+      <footer>
+        <button class="obtn" id="manifPick">Choose manifest…</button>
+        <label class="clipdest"><input type="checkbox" id="manifReplace"> Replace existing entries</label>
+        <span class="grow"></span>
+        <button class="obtn" id="manifRun" disabled>Import</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Absorb sheet: point at one outside project folder and make it native -->
+  <div class="surface" id="absorb" role="dialog" aria-modal="true" aria-label="Absorb project" hidden>
+    <div class="shell">
+      <header>
+        <b>Absorb project</b>
+        <span class="dim" id="absorbDir">no folder chosen</span>
+        <button class="xbtn" id="absorbClose">✕</button>
+      </header>
+      <div class="found" id="absorbBody">
+        <p class="dim pad">Pick a single project folder outside <code>ifreglen/</code>. It stays where it is; the shell only records a registry entry and writes a <code>ifreglen-apps.json</code> manifest inside it.</p>
+        <div class="absorb-field">
+          <label>id</label>
+          <input type="text" id="absorbId" class="palin" placeholder="auto-detected" autocomplete="off" />
+        </div>
+        <div class="absorb-field">
+          <label>name</label>
+          <input type="text" id="absorbName" class="palin" placeholder="auto-detected" autocomplete="off" />
+        </div>
+        <div class="absorb-field" id="absorbCaps">
+          <label>capabilities</label>
+        </div>
+      </div>
+      <footer>
+        <button class="obtn" id="absorbBrowse">Choose project folder…</button>
+        <span class="grow"></span>
+        <button class="obtn" id="absorbRun" disabled>Absorb</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Quick-add. One input, four things: a URL, a note, a pasted image, or a
+       dropped file. The Trove is never optional — it is the record. -->
+  <div class="surface" id="clip" role="dialog" aria-modal="true" aria-label="Quick-add" hidden>
+    <div class="shell">
+      <header>
+        <b>Quick-add</b>
+        <span class="dim" id="clipHint">paste a link, type a note, drop a file, or Ctrl+V an image</span>
+        <button class="xbtn" id="clipClose">✕</button>
+      </header>
+      <input class="palin" id="clipIn" placeholder="https://…  ·  or just start typing" autocomplete="off" />
+      <div class="clipbody" id="clipBody"></div>
+      <footer>
+        <span class="grow"></span>
+        <button class="obtn" id="clipGo">Clip it</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- The Forge's dry run. Nothing here has been written: the list is what
+       WOULD change, and Apply is a separate press after you have read it. -->
+  <div class="surface" id="forge" role="dialog" aria-modal="true" aria-label="Through the Forge" hidden>
+    <div class="shell">
+      <header>
+        <b>Through the Forge</b>
+        <span class="dim" id="forgeWhat">a dry run — nothing is written yet</span>
+        <button class="xbtn" id="forgeClose">✕</button>
+      </header>
+      <div class="found" id="forgeBody"></div>
+      <footer>
+        <button class="obtn" id="forgeCorrection" title="Copy the CORRECTION REQUEST for everything that did not match — paste it back into the same chat">Copy correction…</button>
+        <label class="clipdest"><input type="checkbox" id="forgeVerify" checked> run verify, roll back if red</label>
+        <button class="obtn" id="forgeApply" disabled>Apply</button>
+      </footer>
+    </div>
+  </div>
+
+<script src="sigils.js"></script>
+<!-- The rail's script, in parts (renderer/chrome/). They are plain scripts
+     sharing one global scope, exactly as the single inline script they were
+     cut from: a function or a top-level let in one part is visible in every
+     other. The one rule the cut adds is ORDER. A part runs as it loads, so
+     code that runs at load time (a listener being attached, a first render)
+     may only name what an earlier part, or its own, declares. Calls made
+     later -- from a click, an event, a timer -- may name anything. -->
+<script src="chrome/rail.js"></script>
+<script src="chrome/forge.js"></script>
+<script src="chrome/surfaces.js"></script>
+<script src="chrome/palette.js"></script>
+<script src="chrome/logs.js"></script>
+<script src="chrome/perf.js"></script>
+<script src="chrome/clip.js"></script>
+<script src="chrome/projects.js"></script>
+<script src="chrome/boot.js"></script>
+</body>
+</html>

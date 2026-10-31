@@ -5,15 +5,15 @@ plugins {
 }
 
 android {
-    namespace = "com.cowwie"
+    namespace = "com.professionalgoat"
     compileSdk = 35
 
     defaultConfig {
         applicationId = "com.cowwie"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.3.0"
+        versionCode = 4
+        versionName = "0.4.0"
     }
 
     buildTypes {
@@ -56,8 +56,11 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.exifinterface:exifinterface:1.3.7")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("androidx.savedstate:savedstate-ktx:1.2.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+
+    testImplementation("junit:junit:4.13.2")
 
     // Anthropic Java SDK (works from Kotlin) for the daily AI summary
     implementation("com.anthropic:anthropic-java:2.34.0")
