@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>The Wilds</title>
+<link rel="stylesheet" href="../tokens.css">
+<style>
+  /* The browser's own chrome — a strip across the top of the app area, in the
+     rail's voice rather than a browser's. Same dredged temperature: void
+     ground, bone text, phosphor for things alive, violet for personas, candle
+     amber kept for recording so it never turns up here.
+
+     This view is TRANSPARENT and normally only 76px tall. Everything painted
+     below that line would be invisible, so the omnibox dropdown asks the main
+     process to grow the view first (roostRoam.expand) and shrinks it again on
+     close. See main.js roamExpand — this is the rail's overlay rule wearing a
+     different hat, and it is the bug that recurs with every new modal. */
+  :root {
+    --bar: 76px;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: transparent; color: var(--text);
+    font-family: var(--sans); font-size: 12px;
+    -webkit-font-smoothing: antialiased; user-select: none; overflow: hidden;
+  }
+  :focus-visible { outline: 1.5px solid var(--ready); outline-offset: 1px; border-radius: 4px; }
+  ::-webkit-scrollbar { width: 9px; }
+  ::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 5px; border: 2px solid var(--panel); }
+  ::-webkit-scrollbar-track { background: transparent; }
+
+  /* ------------------------------------------------------------- the bar */
+  .bar {
+    position: fixed; left: 0; right: 0; top: 0; height: var(--bar);
+    background: linear-gradient(180deg, var(--rail-hi), var(--bg));
+    border-bottom: 1px solid var(--rule);
+    display: flex; flex-direction: column; z-index: 20;
+  }
+
+  /* ------------------------------------------------------------ tab strip */
+  .strip {
+    height: 34px; display: flex; align-items: flex-end; gap: 1px;
+    padding: 0 6px; overflow-x: auto; overflow-y: hidden; flex: none;
+  }
+  .strip::-webkit-scrollbar { height: 0; }
+  .tab {
+    flex: 0 1 190px; min-width: 52px; height: 27px;
+    display: flex; align-items: center; gap: 7px;
+    padding: 0 7px 0 9px; border-radius: 6px 6px 0 0;
+    background: transparent; border: 1px solid transparent; border-bottom: 0;
+    cursor: default; position: relative; overflow: hidden;
+  }
+  .tab:hover { background: var(--panel); }
+  .tab.on {
+    background: var(--panel-2); border-color: var(--rule);
+    box-shadow: 0 -1px 0 var(--occult) inset;
+  }
+  .tab.drop-l::before, .tab.drop-r::after {
+    content: ""; position: absolute; top: 4px; bottom: 0; width: 2px; background: var(--ready);
+  }
+  .tab.drop-l::before { left: -1px; }
+  .tab.drop-r::after { right: -1px; }
+  /* No remote favicons, on purpose: this bar runs in the shell's own session,
+     so fetching a site's icon here would be a request made outside every
+     persona jar — the one kind of leak the whole design exists to prevent.
+     A hue derived from the host is free, private, and just as recognisable. */
+  .dot { flex: none; width: 7px; height: 7px; border-radius: 2px; background: var(--faint); }
+  .tab.load .dot { border-radius: 50%; animation: pulse 1s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: 0.25 } }
+  .tab .t {
+    flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+    color: var(--dim); font-size: 11.5px;
+  }
+  .tab.on .t { color: var(--text); }
+  /* A tab in a jar other than the browser's own says so. This is the whole
+     reason to browse in here, so it is never hidden behind a hover. */
+  .tab .jar {
+    flex: none; font-family: var(--mono); font-size: 9px; letter-spacing: .04em;
+    color: var(--occult); background: rgba(155,132,201,.11);
+    border-radius: 3px; padding: 1px 4px; max-width: 76px;
+    /* nowrap or a long cohort name wraps to two lines inside a 27px tab and
+       spills out of it — ellipsis only works on one line. */
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .tab .x {
+    flex: none; width: 15px; height: 15px; line-height: 14px; text-align: center;
+    border-radius: 3px; color: var(--faint); font-family: var(--mono); font-size: 11px;
+    opacity: 0; cursor: pointer;
+  }
+  .tab:hover .x, .tab.on .x { opacity: 1; }
+  .tab .x:hover { background: var(--rule); color: var(--text); }
+  /* Candle amber, at last used for the one thing this palette reserves it
+     for. It appears nowhere else in the browser on purpose: if something in
+     here is amber, a run is recording. */
+  /* A tab an agent opened. Phosphor, because it is something alive acting on
+     its own — and visible at a glance, because an agent browsing on your
+     machine is exactly the thing you should never have to go looking for. */
+  .tab.bot { box-shadow: 0 -1px 0 var(--ready) inset; }
+  .tab.bot .dot { background: var(--ready) !important; }
+  .tab .jar.bot { color: var(--ready); background: rgba(127,214,168,.12); }
+  .tab.cap { box-shadow: 0 -1px 0 var(--signal) inset; }
+  .tab.cap .dot { background: var(--signal) !important; border-radius: 50%; }
+  .tab.cap.rec .dot { animation: beat 1.1s ease-in-out infinite; }
+  @keyframes beat { 0%,100% { opacity: 1; transform: scale(1) } 50% { opacity: .45; transform: scale(.78) } }
+  .tab .jar.cohort { color: var(--signal); background: rgba(217,161,91,.13); }
+
+  /* The recording strip. Replaces the jar button while a run is live, because
+     the jar is no longer yours to change and the cohort is the only identity
+     that matters on screen. */
+  .rec {
+    flex: none; display: none; align-items: center; gap: 8px; height: 25px;
+    padding: 0 9px; border-radius: 5px;
+    border: 1px solid rgba(217,161,91,.45); background: rgba(217,161,91,.09);
+    color: var(--signal); font-family: var(--mono); font-size: 10px; letter-spacing: .05em;
+  }
+  body.recording .rec { display: flex; }
+  body.recording .jarbtn, body.recording #pin, body.recording #clip, body.recording #lead { display: none; }
+  .rec i { width: 7px; height: 7px; border-radius: 50%; background: var(--signal); flex: none;
+           animation: beat 1.1s ease-in-out infinite; }
+  .rec b { color: var(--text); font-weight: 500; }
+  .rec button {
+    height: 18px; padding: 0 7px; border-radius: 4px; cursor: pointer;
+    border: 1px solid rgba(217,161,91,.45); background: none; color: var(--signal);
+    font-family: var(--mono); font-size: 9.5px; letter-spacing: .06em;
+  }
+  .rec button:hover { background: rgba(217,161,91,.18); color: var(--text); }
+
+  .opt.cohort .mark { color: var(--signal); }
+  .newtab {
+    flex: none; width: 24px; height: 24px; margin-bottom: 2px;
+    background: none; border: 0; color: var(--faint); cursor: pointer;
+    font-family: var(--mono); font-size: 14px; border-radius: 5px;
+  }
+  .newtab:hover { background: var(--panel); color: var(--text); }
+
+  /* ----------------------------------------------------------- address row */
+  .row { height: 41px; display: flex; align-items: center; gap: 5px; padding: 0 8px; flex: none; }
+  .row button {
+    flex: none; height: 25px; min-width: 25px; padding: 0 6px;
+    background: none; border: 0; border-radius: 5px; cursor: pointer;
+    color: var(--dim); font-family: var(--mono); font-size: 13px;
+  }
+  .row button:hover:not(:disabled) { background: var(--panel-2); color: var(--text); }
+  .row button:disabled { color: #333A48; cursor: default; }
+  .row button.on { color: var(--signal); }      /* candle — the act of recording */
+  #pin.on { color: var(--text); }               /* a pin is not a recording */
+
+  .addr {
+    flex: 1; display: flex; align-items: center; gap: 7px; height: 27px;
+    background: var(--panel); border: 1px solid var(--rule); border-radius: 6px;
+    padding: 0 9px; min-width: 0;
+  }
+  .addr:focus-within { border-color: var(--occult); background: var(--panel-2); }
+  .addr .lock { flex: none; font-family: var(--mono); font-size: 10px; color: var(--faint); }
+  .addr .lock.warn { color: var(--bad); }
+  .addr input {
+    flex: 1; min-width: 0; background: none; border: 0; outline: 0; color: var(--text);
+    font-family: var(--sans); font-size: 12.5px; user-select: text;
+  }
+  .addr input::placeholder { color: var(--faint); }
+  /* The host in bone, the rest in dim — the part that tells you where you are
+     should not be the same weight as a tracking query string. */
+  .addr .shown { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap;
+                 text-overflow: ellipsis; font-size: 12.5px; color: var(--dim); cursor: text; }
+  .addr .shown b { color: var(--text); font-weight: 500; }
+  .addr .shown .ph { color: var(--faint); }
+
+  .jarbtn {
+    flex: none; height: 25px; display: flex; align-items: center; gap: 5px;
+    padding: 0 8px; border-radius: 5px; border: 1px solid var(--rule);
+    background: var(--panel); cursor: pointer;
+    font-family: var(--mono); font-size: 10px; letter-spacing: .05em;
+    color: var(--occult); max-width: 132px;
+  }
+  .jarbtn:hover { background: var(--panel-2); }
+  .jarbtn i { width: 6px; height: 6px; border-radius: 50%; background: var(--occult); flex: none; }
+  .jarbtn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* The lead chip: same voice as the jar button, but it says where clips GO,
+     not where cookies live. Amber when routing is on, so an active lead is
+     legible at a glance — and impossible to leave on by accident invisibly. */
+  .jarbtn.leadbtn i { background: var(--faint); }
+  .jarbtn.leadbtn.on i { background: var(--lamp); }
+  .jarbtn.leadbtn.on { color: var(--lamp); border-color: rgba(232,190,108,.45); }
+
+  /* ------------------------------------------------------------- overlays */
+  /* Only drawn while the view is tall. The scrim is what makes clicking the
+     page dismiss the dropdown instead of reaching a link underneath it. */
+  .scrim {
+    position: fixed; inset: var(--bar) 0 0 0; z-index: 10; display: none;
+    background: rgba(5, 7, 12, 0.5);
+  }
+  body.tall .scrim { display: block; }
+  .sheet {
+    position: fixed; top: calc(var(--bar) - 5px); z-index: 30;
+    background: var(--panel); border: 1px solid var(--rule); border-radius: 8px;
+    box-shadow: 0 18px 44px rgba(0,0,0,.6);
+    max-height: calc(100vh - var(--bar) - 28px); overflow-y: auto; display: none;
+  }
+  body.tall .sheet.open { display: block; }
+  #drop { left: 10px; right: 10px; padding: 5px; }
+  #jars { right: 10px; width: 232px; padding: 5px; }
+  #cohorts { right: 10px; width: 310px; padding: 5px; }
+  #leads { right: 10px; width: 292px; padding: 5px; }
+  .newlead { display: flex; gap: 6px; padding: 4px 6px 6px; }
+  .newlead input {
+    flex: 1; min-width: 0; background: var(--bg); border: 1px solid var(--rule);
+    border-radius: 5px; color: var(--text); font-family: var(--sans);
+    font-size: 12px; padding: 5px 8px; outline: none;
+  }
+  .newlead input:focus { border-color: var(--lamp); }
+  .newlead button {
+    flex: none; background: var(--panel-2); border: 1px solid var(--rule);
+    border-radius: 5px; color: var(--text); font-family: var(--mono);
+    font-size: 10px; letter-spacing: .06em; padding: 0 10px; cursor: pointer;
+  }
+  .newlead button:hover { border-color: var(--lamp); color: var(--lamp); }
+
+  .grp {
+    padding: 8px 9px 4px; font-family: var(--mono); font-size: 9.5px;
+    letter-spacing: .14em; text-transform: uppercase; color: var(--faint);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .grp button { background: none; border: 0; color: var(--faint); cursor: pointer;
+                font-family: var(--mono); font-size: 9.5px; letter-spacing: .1em; padding: 2px 4px; border-radius: 3px; }
+  .grp button:hover { color: var(--bad); background: var(--panel-2); }
+  .opt {
+    display: flex; align-items: center; gap: 9px; padding: 7px 9px;
+    border-radius: 5px; cursor: pointer; min-width: 0;
+  }
+  .opt:hover, .opt.sel { background: var(--panel-2); }
+  .opt.sel { box-shadow: 0 0 0 1px var(--rule) inset; }
+  .opt .mark { flex: none; width: 15px; text-align: center; font-family: var(--mono);
+               font-size: 11px; color: var(--faint); }
+  .opt.go .mark { color: var(--ready); }
+  .opt .txt { flex: 1; min-width: 0; }
+  .opt .txt b { display: block; font-weight: 500; font-size: 12px; color: var(--text);
+                overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .opt .txt i { display: block; font-style: normal; font-size: 10.5px; color: var(--faint);
+                overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .opt .jar {
+    flex: none; font-family: var(--mono); font-size: 9px; letter-spacing: .04em;
+    color: var(--occult); background: rgba(155,132,201,.11);
+    border-radius: 3px; padding: 1px 5px; white-space: nowrap;
+  }
+  .opt .kill { flex: none; opacity: 0; color: var(--faint); font-family: var(--mono);
+               font-size: 11px; padding: 2px 5px; border-radius: 3px; }
+  .opt:hover .kill { opacity: 1; }
+  .opt .kill:hover { color: var(--bad); background: var(--rule); }
+  .opt.jar .mark { color: var(--occult); }
+  .opt.jar.cur { box-shadow: 0 0 0 1px var(--occult) inset; }
+  .note { padding: 9px 11px 11px; color: var(--faint); font-size: 10.5px; line-height: 1.55; border-top: 1px solid var(--rule); }
+  .note b { color: var(--dim); font-weight: 500; }
+  .empty { padding: 14px 11px; color: var(--faint); font-size: 11.5px; text-align: center; }
+
+  /* A failed navigation, said in the bar rather than only on Chromium's own
+     error page — which an embedded view makes very easy to mistake for the
+     shell itself having broken. */
+  .oops {
+    position: fixed; left: 10px; right: 10px; top: calc(var(--bar) + 10px); z-index: 25;
+    display: none; align-items: center; gap: 10px; padding: 9px 11px;
+    background: var(--panel); border: 1px solid var(--rule);
+    border-left: 2px solid var(--bad); border-radius: 7px;
+    box-shadow: 0 14px 34px rgba(0,0,0,.55); font-size: 11.5px; color: var(--dim);
+  }
+  body.tall .oops.open { display: flex; }
+  .oops b { color: var(--text); font-weight: 500; }
+  .oops button { margin-left: auto; background: var(--panel-2); border: 1px solid var(--rule);
+                 color: var(--text); border-radius: 5px; padding: 4px 10px; cursor: pointer; font-size: 11px; }
+  .oops button:hover { border-color: var(--occult); }
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <div class="strip" id="strip"></div>
+  <div class="row">
+    <button id="back"    title="Back (Alt+←)" disabled>‹</button>
+    <button id="fwd"     title="Forward (Alt+→)" disabled>›</button>
+    <button id="reload"  title="Reload (Ctrl+R)">↻</button>
+
+    <div class="addr" id="addr">
+      <span class="lock" id="lock"></span>
+      <div class="shown" id="shown"></div>
+      <input id="in" hidden spellcheck="false" autocomplete="off" autocapitalize="off" />
+    </div>
+
+    <button id="pin"  title="Pin this page">☆</button>
+    <button id="clip" title="Clip this page into the Trove (Ctrl+D)">⌗</button>
+    <button class="jarbtn leadbtn" id="lead" title="Clips go into the Trove, unsorted — click to route them into a research lead"><i></i><span>no lead</span></button>
+    <button class="jarbtn" id="jar" title="Which cookie jar this tab browses in"><i></i><span>roam</span></button>
+    <button id="sys"  title="Hand this page to your system browser">↗</button>
+  </div>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="drop"></div>
+<div class="sheet" id="jars"></div>
+<div class="sheet" id="leads"></div>
+<div class="oops" id="oops"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+let S = { tabs: [], personas: [], recent: [], pins: [], leads: [] };
+let sheet = null;          // null | "drop" | "jars" | "leads"
+let sugg = [];
+let sel = -1;
+let editing = false;
+let typed = false;   // focusing selects the existing URL; that is not a query
+
+// ------------------------------------------------------------------ host hue
+// Stable per host, so the same site is the same colour every time without
+// anything being fetched. Just a hash folded into the wheel.
+function hue(url) {
+  let h = 0;
+  const host = (url || "").replace(/^\w+:\/\//, "").split("/")[0];
+  for (let i = 0; i < host.length; i++) h = (h * 31 + host.charCodeAt(i)) % 360;
+  return `hsl(${h} 42% 62%)`;
+}
+
+// --------------------------------------------------------------- the strip
+function renderTabs() {
+  $("strip").innerHTML = S.tabs.map((t) => `
+    <div class="tab ${t.active ? "on" : ""} ${t.loading ? "load" : ""} ${t.agent ? "bot" : ""}"
+         data-id="${esc(t.id)}" draggable="true"
+         title="${esc(t.agent ? `opened by an agent · jar ${t.persona} — ${t.title || t.url || ""}`
+        : (t.title || t.url || "New tab"))}">
+      <span class="dot" style="background:${t.blank ? "var(--faint)" : hue(t.url)}"></span>
+      <span class="t">${esc(t.title || (t.blank ? "New tab" : t.host || "…"))}</span>
+      ${t.persona && t.persona !== "roam" ? `<span class="jar ${t.agent ? "bot" : ""}" title="cookie jar: ${esc(t.persona)}">${esc(t.persona)}</span>` : ""}
+      <span class="x" data-close="${esc(t.id)}" title="Close (Ctrl+W)">✕</span>
+    </div>`).join("") + `<button class="newtab" id="plus" title="New tab (Ctrl+T)">+</button>`;
+}
+
+function renderAddr() {
+  $("back").disabled = !S.canBack;
+  $("fwd").disabled = !S.canForward;
+  $("reload").textContent = S.loading ? "✕" : "↻";
+  $("reload").title = S.loading ? "Stop loading" : "Reload (Ctrl+R)";
+  $("pin").textContent = S.pinned ? "★" : "☆";
+  $("pin").classList.toggle("on", !!S.pinned);
+  $("jar").querySelector("span").textContent = S.persona || "roam";
+  // The lead chip. Title restates the routing each time, because "is it on?"
+  // must never be a thing you have to remember.
+  $("lead").classList.toggle("on", !!S.lead);
+  $("lead").querySelector("span").textContent = S.lead ? S.lead.name : "no lead";
+  $("lead").title = S.lead
+    ? `New clips — ⌗, right-click, Ctrl+D — are being filed into "${S.lead.name}" in the Trove. Click to change.`
+    : "Clips go into the Trove, unsorted — click to route them into a research lead";
+
+  const lock = $("lock");
+  if (!S.url) { lock.textContent = ""; lock.className = "lock"; }
+  else if (/^https:/i.test(S.url)) { lock.textContent = "◈"; lock.className = "lock"; lock.title = "encrypted"; }
+  else if (/^file:/i.test(S.url)) { lock.textContent = "▣"; lock.className = "lock"; lock.title = "local file"; }
+  else { lock.textContent = "◇"; lock.className = "lock warn"; lock.title = "not encrypted"; }
+
+  if (!editing) {
+    $("in").hidden = true;
+    $("shown").hidden = false;
+    if (!S.url) $("shown").innerHTML = `<span class="ph">search, or type an address — this stays inside Ifreglen</span>`;
+    else {
+      // host in bone, everything else dim.
+      let html = esc(S.url);
+      try {
+        const u = new URL(S.url);
+        const host = u.host.replace(/^www\./, "");
+        const rest = S.url.slice(S.url.indexOf(u.host) + u.host.length);
+        html = `<span>${esc(u.protocol)}//</span><b>${esc(host)}</b><span>${esc(rest)}</span>`;
+      } catch {}
+      $("shown").innerHTML = html;
+    }
+  }
+
+  const o = $("oops");
+  if (S.failed) {
+    o.innerHTML = `<b>Didn't load.</b> ${esc(S.failed.desc || "")} <span style="color:var(--faint)">${esc(S.failed.code)}</span>
+                   <button id="retry">Try again</button>`;
+    o.classList.add("open");
+    if (!sheet) expand(true);
+  } else {
+    o.classList.remove("open");
+    if (!sheet && document.body.classList.contains("tall")) expand(false);
+  }
+}
+
+function render() {
+  renderTabs(); renderAddr();
+  if (sheet === "drop") drawDrop();
+  if (sheet === "jars") drawJars();
+  if (sheet === "leads") drawLeads();
+}
+
+// ------------------------------------------------------------- the overlays
+// Nothing taller than the bar may be drawn without growing the view first.
+function expand(on) {
+  document.body.classList.toggle("tall", !!on);
+  roostRoam.expand(!!on);
+}
+function openSheet(which) {
+  sheet = which;
+  for (const id of ["drop", "jars", "leads"]) $(id).classList.toggle("open", which === id);
+  expand(true);
+  if (which === "drop") drawDrop();
+  if (which === "jars") drawJars();
+  if (which === "leads") drawLeads();
+}
+function closeSheet() {
+  sheet = null;
+  for (const id of ["drop", "jars", "leads"]) $(id).classList.remove("open");
+  if (!S.failed) expand(false);
+  sel = -1;
+}
+
+function optHtml(o, i) {
+  const isSearch = o.kind === "search";
+  return `<div class="opt ${isSearch ? "go" : ""} ${i === sel ? "sel" : ""}" data-i="${i}">
+    <span class="mark">${isSearch ? "⌕" : o.kind === "pin" ? "★" : "↩"}</span>
+    <span class="txt"><b>${esc(o.title || o.url)}</b><i>${esc(isSearch ? "search the web" : o.url)}</i></span>
+    ${o.persona ? `<span class="jar" title="opens in the ${esc(o.persona)} jar">${esc(o.persona)}</span>` : ""}
+    ${o.kind === "history" ? `<span class="kill" data-forget="${esc(o.url)}" title="Forget this">✕</span>` : ""}
+  </div>`;
+}
+
+function drawDrop() {
+  const q = typed ? $("in").value.trim() : "";
+  let html = "";
+  if (!q) {
+    const pins = S.pins || [];
+    if (pins.length) {
+      html += `<div class="grp"><span>Pinned</span></div>`;
+      html += pins.map((p, i) => optHtml({ ...p, kind: "pin" }, i)).join("");
+    }
+    const rec = (S.recent || []).filter((r) => !pins.some((p) => p.url === r.url));
+    if (rec.length) {
+      html += `<div class="grp"><span>Where you have been</span><button data-forget-all="1">forget all</button></div>`;
+      html += rec.map((r, i) => optHtml({ ...r, kind: "history" }, pins.length + i)).join("");
+    }
+    sugg = [...pins.map((p) => ({ ...p, kind: "pin" })), ...rec.map((r) => ({ ...r, kind: "history" }))];
+    if (!html) html = `<div class="empty">Nothing here yet. Type an address, or anything at all to search.</div>`;
+    html += `<div class="note"><b>Ctrl+T</b> a new page · <b>Ctrl+L</b> back to this bar · <b>Ctrl+W</b> close a tab ·
+             right-click anything on a page to clip it into the Trove.</div>`;
+  } else {
+    html = sugg.map(optHtml).join("");
+  }
+  $("drop").innerHTML = html;
+}
+
+function drawJars() {
+  $("jars").innerHTML =
+    `<div class="grp"><span>Browse in the jar of</span></div>` +
+    S.personas.map((p) => `
+      <div class="opt jar ${p === S.persona ? "cur" : ""}" data-jar="${esc(p)}">
+        <span class="mark">${p === S.persona ? "◉" : "○"}</span>
+        <span class="txt"><b>${esc(p)}</b><i>${p === "roam" ? "this browser's own jar" : "shared with the apps on " + esc(p)}</i></span>
+      </div>`).join("") +
+    `<div class="note">Cookies and logins are kept per jar, so a tab in one cannot see a tab in another.
+     Switching reloads the page — a jar is chosen when the page is built.</div>`;
+}
+
+// The lead picker. Creating one from HERE turns routing on immediately — you
+// did not open this sheet to file clips nowhere.
+function drawLeads() {
+  const list = S.leads || [];
+  const on = S.lead || null;
+  $("leads").innerHTML =
+    `<div class="grp"><span>File new clips into</span></div>` +
+    `<div class="opt ${on ? "" : "cur"}" data-lead="">
+       <span class="mark">${on ? "○" : "◉"}</span>
+       <span class="txt"><b>nowhere in particular</b><i>clips land in the Trove, unsorted</i></span>
+     </div>` +
+    list.map((l) => `
+      <div class="opt ${on && on.id === l.id ? "cur" : ""}" data-lead="${esc(l.id)}">
+        <span class="mark">${on && on.id === l.id ? "◉" : "○"}</span>
+        <span class="txt"><b>${esc(l.name)}</b><i>${l.n} clip${l.n === 1 ? "" : "s"} gathered</i></span>
+      </div>`).join("") +
+    `<div class="grp"><span>Or start a new lead</span></div>` +
+    `<div class="newlead">
+       <input id="leadname" placeholder="what are you chasing?" autocomplete="off" spellcheck="false" />
+       <button id="leadgo">start</button>
+     </div>` +
+    `<div class="note">A lead is a container that gathers clips from anywhere — a page, an image,
+     a link, a chat — into one research trail. While one is chosen, <b>every</b> clip you make lands
+     in it: the ⌗ button, <b>Ctrl+D</b>, right-click, even an agent's browsing. The leads
+     themselves live in the Trove.</div>`;
+}
+
+// ------------------------------------------------------------------ actions
+// Enter in the address bar navigates THIS tab. Alt+Enter gives it a new one,
+// the way every browser does.
+function go(value, opts) {
+  if (!value) return;
+  roostRoam.open(value, { here: true, ...(opts || {}) });
+  editing = false;
+  closeSheet();
+  $("in").blur();
+}
+
+function beginEdit(selectAll) {
+  editing = true;
+  typed = false;
+  $("shown").hidden = true;
+  $("in").hidden = false;
+  $("in").value = S.url || "";
+  $("in").focus();
+  if (selectAll !== false) $("in").select();
+  openSheet("drop");
+}
+
+function endEdit() {
+  editing = false;
+  closeSheet();
+  renderAddr();
+}
+
+$("shown").addEventListener("mousedown", (e) => { e.preventDefault(); beginEdit(true); });
+$("addr").addEventListener("click", () => { if (!editing) beginEdit(true); });
+
+$("in").addEventListener("input", async () => {
+  const q = $("in").value.trim();
+  typed = true;
+  sel = -1;
+  if (!q) { sugg = []; drawDrop(); return; }
+  const r = await roostRoam.suggest(q);
+  // The typed line is always the first option, so Enter and clicking the top
+  // row can never disagree about where you are going.
+  const looksUrl = /^[a-z][a-z0-9+.\-]*:/i.test(q) || (!/\s/.test(q) && /\.[a-z]{2,}(:\d+)?([/?#]|$)/i.test(q)) || /^(localhost|127\.0\.0\.1)(:\d+)?/i.test(q);
+  sugg = [{ url: q, title: q, kind: looksUrl ? "history" : "search" }, ...(r.items || [])
+    .filter((x) => x.url !== q)];
+  drawDrop();
+});
+
+$("in").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    const pick = sel >= 0 && sugg[sel] ? sugg[sel] : null;
+    go(pick && pick.kind !== "search" ? pick.url : $("in").value, { newTab: e.altKey });
+    return;
+  }
+  if (e.key === "Escape") { e.preventDefault(); endEdit(); return; }
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    e.preventDefault();
+    if (!sugg.length) return;
+    sel += e.key === "ArrowDown" ? 1 : -1;
+    if (sel < -1) sel = sugg.length - 1;
+    if (sel >= sugg.length) sel = -1;
+    drawDrop();
+    const el = $("drop").querySelector(".opt.sel");
+    if (el) el.scrollIntoView({ block: "nearest" });
+  }
+});
+$("in").addEventListener("blur", () => { if (!sheet) endEdit(); });
+
+$("drop").addEventListener("click", (e) => {
+  const f = e.target.closest("[data-forget]");
+  if (f) { e.stopPropagation(); roostRoam.forget({ url: f.dataset.forget }); return; }
+  if (e.target.closest("[data-forget-all]")) { roostRoam.forget({ all: true }); return; }
+  const o = e.target.closest(".opt");
+  if (!o) return;
+  const item = sugg[Number(o.dataset.i)];
+  if (!item) return;
+  // A pin that names a jar opens in that jar — in its own tab, since changing
+  // jar means building a new view. Everything else navigates in place.
+  if (item.persona) { roostRoam.open(item.url, { persona: item.persona }); endEdit(); closeSheet(); return; }
+  go(item.kind === "search" ? $("in").value || item.url : item.url);
+});
+
+$("jars").addEventListener("click", async (e) => {
+  const j = e.target.closest("[data-jar]");
+  if (!j) return;
+  closeSheet();
+  const r = await roostRoam.persona(j.dataset.jar);
+  if (r && r.error) {
+    $("oops").innerHTML = `<b>No.</b> ${esc(r.error)}`;
+    $("oops").classList.add("open");
+    expand(true);
+    setTimeout(() => { $("oops").classList.remove("open"); if (!sheet) expand(false); }, 3200);
+  }
+});
+
+$("scrim").addEventListener("mousedown", () => { closeSheet(); endEdit(); });
+
+$("strip").addEventListener("click", (e) => {
+  if (e.target.id === "plus") { roostRoam.newTab(); return; }
+  const x = e.target.closest("[data-close]");
+  if (x) { roostRoam.close(x.dataset.close); return; }
+  const t = e.target.closest(".tab");
+  if (t) roostRoam.select(t.dataset.id);
+});
+$("strip").addEventListener("auxclick", (e) => {
+  if (e.button !== 1) return;
+  const t = e.target.closest(".tab");
+  if (t) roostRoam.close(t.dataset.id);
+});
+
+// Drag to reorder. Plain HTML5 drag — the strip is one flat row, so the drop
+// index is just "before or after the tab you are over".
+let dragId = null;
+$("strip").addEventListener("dragstart", (e) => {
+  const t = e.target.closest(".tab");
+  if (!t) return;
+  dragId = t.dataset.id;
+  e.dataTransfer.effectAllowed = "move";
+  try { e.dataTransfer.setData("text/plain", dragId); } catch {}
+});
+$("strip").addEventListener("dragover", (e) => {
+  if (!dragId) return;
+  e.preventDefault();
+  const t = e.target.closest(".tab");
+  for (const el of $("strip").children) el.classList?.remove("drop-l", "drop-r");
+  if (!t || t.dataset.id === dragId) return;
+  const r = t.getBoundingClientRect();
+  t.classList.add(e.clientX < r.left + r.width / 2 ? "drop-l" : "drop-r");
+});
+$("strip").addEventListener("drop", (e) => {
+  if (!dragId) return;
+  e.preventDefault();
+  const t = e.target.closest(".tab");
+  for (const el of $("strip").children) el.classList?.remove("drop-l", "drop-r");
+  if (t && t.dataset.id !== dragId) {
+    const r = t.getBoundingClientRect();
+    const at = S.tabs.findIndex((x) => x.id === t.dataset.id);
+    roostRoam.move(dragId, at + (e.clientX < r.left + r.width / 2 ? 0 : 1));
+  }
+  dragId = null;
+});
+$("strip").addEventListener("dragend", () => {
+  dragId = null;
+  for (const el of $("strip").children) el.classList?.remove("drop-l", "drop-r");
+});
+
+$("back").onclick   = () => roostRoam.nav("back");
+$("fwd").onclick    = () => roostRoam.nav("forward");
+$("reload").onclick = () => roostRoam.nav(S.loading ? "stop" : "reload");
+$("pin").onclick    = () => (S.pinned ? roostRoam.unpin(S.url) : roostRoam.pin(S.url, S.title));
+$("sys").onclick    = () => roostRoam.system();
+$("jar").onclick    = (e) => { e.stopPropagation(); sheet === "jars" ? closeSheet() : openSheet("jars"); };
+$("clip").onclick   = async () => {
+  const r = await roostRoam.clip({ what: "page" });
+  $("clip").classList.add("on");
+  setTimeout(() => $("clip").classList.remove("on"), r && r.ok ? 900 : 200);
+};
+
+// The lead chip. Toggling routing is a one-click action the way pinning is.
+$("lead").onclick = () => (sheet === "leads" ? closeSheet() : openSheet("leads"));
+$("leads").addEventListener("click", async (e) => {
+  const pick = e.target.closest("[data-lead]");
+  if (pick) { await roostRoam.lead(pick.dataset.lead || null); closeSheet(); return; }
+  if (e.target.closest("#leadgo")) {
+    const v = $("leadname").value.trim();
+    if (!v) { $("leadname").focus(); return; }
+    await roostRoam.leadNew(v);
+    closeSheet();
+  }
+});
+$("leads").addEventListener("keydown", async (e) => {
+  if (e.key === "Enter" && e.target.id === "leadname") {
+    const v = e.target.value.trim();
+    if (v) { await roostRoam.leadNew(v); closeSheet(); }
+  }
+});
+$("oops").addEventListener("click", (e) => { if (e.target.id === "retry") roostRoam.nav("reload"); });
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") { closeSheet(); endEdit(); }
+});
+
+roostRoam.on("roam", (s) => {
+  const moved = s.url !== S.url || s.active !== S.active;
+  S = s;
+  // A navigation or a tab switch that the person did not type ends ADDRESS-BAR
+  // edit mode. Without it, the auto-focus on a blank tab never lets go: you
+  // follow a link, the page loads, and the bar goes on showing the empty field
+  // it was focused into.
+  //
+  // But endEdit() closes whatever sheet is open, and the jar and lead
+  // pickers are decisions in progress — a page settling underneath is not an
+  // answer to "which cookie jar?", and having the sheet snap shut while you
+  // reach for it is worse than the stale field this is here to fix. So it
+  // applies only when the omnibox itself is what is open.
+  const typing = document.activeElement === $("in");
+  if (moved && editing && !typing && (sheet === null || sheet === "drop")) endEdit();
+  render();
+});
+roostRoam.on("roam-focus", (p) => beginEdit(p && p.select !== false));
+// Main shrank the view back to the bar. Match it WITHOUT calling expand()
+// again — the view is already the right size, and asking for it a second time
+// would just bounce another message back.
+roostRoam.on("roam-collapse", () => {
+  sheet = null;
+  sel = -1;
+  $("drop").classList.remove("open");
+  $("jars").classList.remove("open");
+  $("leads").classList.remove("open");
+  document.body.classList.remove("tall");
+  if (editing) { editing = false; renderAddr(); }
+});
+roostRoam.state().then((s) => { S = s; render(); });
+</script>
+</body>
+</html>

@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Drafts</title>
+<style>
+  :root {
+    --bg: #07080D; --panel: #12151F; --panel-2: #171B29; --rule: #232A3D;
+    --text: #D6D2C4; --dim: #79808F; --faint: #565D70;
+    --signal: #D9A15B; --ready: #7FD6A8; --occult: #9B84C9; --bad: #D98B7A;
+    --mono: "Cascadia Code", ui-monospace, Consolas, monospace;
+    --sans: "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; line-height: 1.5;
+    display: grid; grid-template-columns: 250px 1fr 1fr; grid-template-rows: 52px 1fr;
+    grid-template-areas: "bar bar bar" "list form out"; overflow: hidden;
+  }
+  .bar { grid-area: bar; display: flex; align-items: center; gap: 14px; padding: 0 18px; background: var(--panel); border-bottom: 1px solid var(--rule); }
+  .bar .logo { font-family: var(--mono); font-weight: 700; letter-spacing: 2px; color: var(--signal); }
+  .bar .status { font-family: var(--mono); font-size: 11px; color: var(--dim); }
+  .bar .status .up { color: var(--ready); } .bar .status .down { color: var(--bad); }
+  .bar .spacer { flex: 1; }
+  .bar label { font-size: 12px; color: var(--dim); display: flex; align-items: center; gap: 6px; }
+  .list { grid-area: list; background: var(--panel); border-right: 1px solid var(--rule); overflow-y: auto; padding: 8px 0; }
+  .group { font-family: var(--mono); font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--faint); padding: 12px 16px 4px; }
+  .tpl { padding: 8px 16px; cursor: pointer; border-left: 2px solid transparent; color: var(--text); }
+  .tpl:hover { background: var(--panel-2); }
+  .tpl.on { border-left-color: var(--signal); background: var(--panel-2); color: #fff; }
+  .form { grid-area: form; overflow-y: auto; padding: 18px 20px; border-right: 1px solid var(--rule); }
+  .out { grid-area: out; overflow-y: auto; padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; }
+  h2 { font-size: 16px; font-weight: 600; margin: 0 0 4px; }
+  .hint { color: var(--dim); font-size: 12px; margin: 0 0 14px; }
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: 12px; color: var(--dim); margin-bottom: 4px; }
+  .field label i { color: var(--faint); font-style: normal; }
+  input, textarea, select {
+    width: 100%; background: var(--panel); color: var(--text); border: 1px solid var(--rule); border-radius: 4px;
+    padding: 7px 9px; font-family: var(--sans); font-size: 14px;
+  }
+  textarea { min-height: 64px; resize: vertical; }
+  textarea.draft { min-height: 360px; flex: 1; font-family: var(--sans); line-height: 1.55; }
+  input:focus, textarea:focus, select:focus { outline: none; border-color: var(--occult); }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  button {
+    background: var(--panel-2); color: var(--text); border: 1px solid var(--rule); padding: 7px 14px; border-radius: 4px;
+    font-family: var(--sans); font-size: 13px; cursor: pointer;
+  }
+  button:hover { border-color: var(--occult); color: var(--occult); }
+  button.primary { background: rgba(217,161,91,.14); border-color: var(--signal); color: var(--signal); }
+  button.primary:hover { background: rgba(217,161,91,.24); }
+  button:disabled { opacity: .45; cursor: default; }
+  .via { font-family: var(--mono); font-size: 11px; color: var(--dim); }
+  .via .k { color: var(--ready); } .via .t { color: var(--signal); } .via .e { color: var(--bad); }
+  .hist { border-top: 1px solid var(--rule); padding-top: 10px; }
+  .hist .h { display: flex; gap: 8px; align-items: baseline; padding: 5px 0; cursor: pointer; border-bottom: 1px dashed var(--rule); }
+  .hist .h:hover .t { color: var(--occult); }
+  .hist .h .t { flex: 1; }
+  .hist .h .w { font-family: var(--mono); font-size: 11px; color: var(--faint); }
+  .hist .h .x { color: var(--faint); font-size: 12px; } .hist .h .x:hover { color: var(--bad); }
+  .busy { color: var(--signal); font-family: var(--mono); font-size: 12px; }
+  .busy::before { content: "⚡ "; animation: pulse 1s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .3; } }
+  .empty { color: var(--faint); }
+</style>
+</head>
+<body>
+<div class="bar">
+  <span class="logo">DRAFTS</span>
+  <span class="status" id="status">…</span>
+  <span class="spacer"></span>
+  <label><input type="checkbox" id="useModel" checked> write with Kenoma</label>
+  <label>tone <select id="tone"><option>warm</option><option>neutral</option><option>firm</option></select></label>
+  <label>length <select id="length"><option>standard</option><option>short</option></select></label>
+</div>
+<div class="list" id="list"></div>
+<div class="form" id="form"><p class="empty">Pick a template.</p></div>
+<div class="out">
+  <div class="row">
+    <button class="primary" id="go" disabled>Draft it</button>
+    <button id="copy" disabled>Copy</button>
+    <span class="via" id="via"></span>
+    <span class="busy" id="busy" hidden>Kenoma is writing</span>
+  </div>
+  <textarea class="draft" id="draft" placeholder="The draft lands here. Edit it, then copy it into your mail. Nothing is sent from this page."></textarea>
+  <div class="hint">Kenoma writes with whatever model it is configured for (an outside service). Keep patient information out of these forms.</div>
+  <div class="hist" id="hist"></div>
+</div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+let templates = [], current = null, drafts = [];
+const api = (p, o) => fetch(p, o).then((r) => r.json());
+
+async function boot() {
+  const st = await api("/api/status");
+  $("#status").innerHTML = `kenoma <span class="${st.kenoma ? "up" : "down"}">${st.kenoma ? "up" : "down"}</span> · ${st.kenomaUrl.replace("http://", "")}`;
+  if (!st.kenoma) $("#useModel").checked = false;
+  templates = await api("/api/templates");
+  const groups = [...new Set(templates.map((t) => t.group))];
+  $("#list").innerHTML = groups.map((g) => `<div class="group">${g}</div>` +
+    templates.filter((t) => t.group === g).map((t) => `<div class="tpl" data-id="${t.id}">${t.name}</div>`).join("")).join("");
+  $("#list").onclick = (e) => { const el = e.target.closest(".tpl"); if (el) pick(el.dataset.id); };
+  drafts = await api("/api/drafts");
+  paintHistory();
+  setInterval(async () => { try { const s = await api("/api/status"); $("#status").querySelector("span").className = s.kenoma ? "up" : "down"; $("#status").querySelector("span").textContent = s.kenoma ? "up" : "down"; } catch {} }, 15000);
+}
+
+function pick(id, fields) {
+  current = templates.find((t) => t.id === id);
+  for (const el of document.querySelectorAll(".tpl")) el.classList.toggle("on", el.dataset.id === id);
+  $("#form").innerHTML = `<h2>${current.name}</h2><p class="hint">Facts only; the writing is the draft's job. Blank optional fields are left out.</p>` +
+    current.fields.map((f) => `<div class="field"><label>${f.label}${f.optional ? " <i>· optional</i>" : ""}</label>` +
+      (f.kind === "multi" ? `<textarea data-k="${f.key}" placeholder="${f.hint || ""}">${fields?.[f.key] || ""}</textarea>` :
+       f.kind === "choice" ? `<select data-k="${f.key}">${f.options.map((o) => `<option${fields?.[f.key] === o ? " selected" : ""}>${o}</option>`).join("")}</select>` :
+       `<input data-k="${f.key}" placeholder="${f.hint || ""}" value="${(fields?.[f.key] || "").replace(/"/g, "&quot;")}">`) + `</div>`).join("");
+  if (current.tone) $("#tone").value = current.tone;
+  $("#go").disabled = false;
+  const first = $("#form [data-k]"); if (first && !fields) first.focus();
+}
+
+function facts() {
+  const out = {};
+  for (const el of document.querySelectorAll("#form [data-k]")) out[el.dataset.k] = el.value;
+  return out;
+}
+
+$("#go").onclick = async () => {
+  if (!current) return;
+  $("#go").disabled = true; $("#busy").hidden = !$("#useModel").checked; $("#via").textContent = "";
+  try {
+    const d = await api("/api/draft", { method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ templateId: current.id, fields: facts(), tone: $("#tone").value, length: $("#length").value, model: $("#useModel").checked }) });
+    if (d.error && !d.text) { $("#via").innerHTML = `<span class="e">${d.error}</span>`; return; }
+    $("#draft").value = d.text;
+    $("#via").innerHTML = d.via === "kenoma" ? `<span class="k">written by Kenoma</span>` : `<span class="t">plain template</span>` + (d.error ? ` <span class="e">· ${d.error}</span>` : "");
+    $("#copy").disabled = false;
+    drafts = await api("/api/drafts"); paintHistory();
+  } finally { $("#go").disabled = false; $("#busy").hidden = true; }
+};
+
+$("#copy").onclick = async () => {
+  await navigator.clipboard.writeText($("#draft").value);
+  $("#via").innerHTML += ` <span class="k">· copied</span>`;
+};
+$("#draft").addEventListener("input", () => { $("#copy").disabled = !$("#draft").value.trim(); });
+
+function paintHistory() {
+  $("#hist").innerHTML = drafts.length ? `<div class="group" style="padding-left:0">Earlier</div>` +
+    drafts.slice(0, 30).map((d) => `<div class="h" data-id="${d.id}"><span class="t">${d.title}</span><span class="w">${d.via === "kenoma" ? "K" : "T"} · ${new Date(d.when).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span><span class="x" data-x="${d.id}">✕</span></div>`).join("") : "";
+  $("#hist").onclick = async (e) => {
+    const x = e.target.closest("[data-x]");
+    if (x) { await fetch(`/api/drafts/${x.dataset.x}`, { method: "DELETE" }); drafts = drafts.filter((d) => d.id !== x.dataset.x); paintHistory(); return; }
+    const h = e.target.closest(".h"); if (!h) return;
+    const d = drafts.find((z) => z.id === h.dataset.id); if (!d) return;
+    pick(d.templateId, d.fields); $("#draft").value = d.text; $("#copy").disabled = false;
+    $("#via").innerHTML = d.via === "kenoma" ? `<span class="k">written by Kenoma</span>` : `<span class="t">plain template</span>`;
+  };
+}
+
+boot();
+</script>
+</body>
+</html>

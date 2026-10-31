@@ -1,0 +1,1930 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>The Trove</title>
+<link rel="stylesheet" href="../tokens.css">
+<style>
+  /* The Sanctum's room language, not the rail's instrument language — this is
+     somewhere you browse, not somewhere you operate. Same candlelit palette,
+     same grain, so the two read as rooms in one house. */
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: var(--sans); font-size: 14px; line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+  .veil {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background:
+      radial-gradient(120% 90% at 50% 4%, transparent 58%, rgba(4,5,9,0.5) 100%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.045'/%3E%3C/svg%3E");
+  }
+  .shellwrap { position: relative; z-index: 1; height: 100%; display: flex; flex-direction: column; }
+
+  header {
+    flex: none; display: flex; align-items: baseline; gap: 14px;
+    padding: 26px 30px 14px;
+  }
+  h1 {
+    font-family: var(--serif); font-size: 26px; font-weight: 400;
+    letter-spacing: -0.01em; margin: 0;
+  }
+  .count { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; color: var(--faint); }
+  .filters { margin-left: auto; display: flex; gap: 7px; align-items: center; }
+  .filters input, .filters select {
+    background: var(--panel); border: 1px solid var(--rule); border-radius: 6px;
+    color: var(--text); outline: 0; font-family: var(--mono); font-size: 10.5px;
+    padding: 5px 8px;
+  }
+  .filters input { width: 180px; }
+  .filters input:focus, .filters select:focus { border-color: var(--moss); }
+
+  .body { flex: 1; min-height: 0; display: flex; }
+  .grid {
+    flex: 1; min-width: 0; overflow-y: auto;
+    padding: 8px 30px 40px;
+    columns: 240px;
+    column-gap: 14px;
+  }
+  .card {
+    break-inside: avoid;
+    margin-bottom: 14px;
+    background: linear-gradient(160deg, var(--panel-2), var(--panel) 62%);
+    border: 1px solid var(--rule); border-radius: 11px; overflow: hidden;
+    cursor: pointer; position: relative;
+    transition: border-color 0.16s, transform 0.14s, box-shadow 0.14s;
+  }
+  .card:hover {
+    border-color: var(--lamp); transform: translateY(-2px);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+  }
+  .card.sel { border-color: var(--moss); }
+  .card .shot {
+    display: block; width: 100%; object-fit: cover;
+    background: #0d0f18; border-bottom: 1px solid var(--rule);
+  }
+  .card .body {
+    padding: 11px 12px 10px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  /* The site badge and watermark tint come from a hash of the hostname —
+     same site, same colour — and nothing is fetched to get it; favicons
+     would broadcast the archive's URLs back onto the network. */
+  .card .badge {
+    width: 26px; height: 26px; border-radius: 50%; flex: none;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--serif); font-size: 13px; line-height: 1;
+    color: hsl(var(--hue) 50% 78%);
+    background: hsl(var(--hue) 35% 20% / 0.55);
+    border: 1px solid hsl(var(--hue) 40% 34% / 0.5);
+  }
+  .card .badge.ext { font-family: var(--mono); font-size: 7.5px; }
+  .siterow { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .siterow .host {
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em;
+    text-transform: lowercase; color: var(--dim);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .card .mark {
+    position: absolute; right: 6px; bottom: 0;
+    font-family: var(--serif); font-size: 60px; line-height: 1;
+    color: hsl(var(--hue) 50% 65% / 0.08);
+    pointer-events: none; user-select: none;
+  }
+  .card .ct {
+    font-size: 13px; line-height: 1.35; color: var(--text);
+    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .card .ct.url { font-family: var(--mono); font-size: 10.5px; color: var(--dim); }
+  .card .ct .hasnote { color: var(--moss); margin-right: 4px; }
+  .card .quote {
+    font-family: var(--serif); font-style: italic;
+    font-size: 12.5px; line-height: 1.55; color: var(--dim);
+    display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .card .cm {
+    margin-top: auto; font-family: var(--mono); font-size: 8.5px; letter-spacing: 0.07em;
+    color: var(--faint); display: flex; gap: 7px; align-items: center;
+  }
+  .card .cm .kchip {
+    color: var(--moss); text-transform: uppercase;
+    border: 1px solid var(--rule); border-radius: 4px; padding: 0 4px;
+  }
+  .card .cm .a { margin-left: auto; }
+
+  /* Detail — the whole index line, because this is a provenance tool. */
+  .detail {
+    flex: none; width: 0; overflow: hidden;
+    border-left: 1px solid transparent;
+    transition: width 0.18s ease;
+  }
+  .detail.open { width: min(390px, 42vw); border-left-color: var(--rule); }
+  .dinner { width: min(390px, 42vw); height: 100%; overflow-y: auto; padding: 26px 24px 40px; }
+  .dinner h2 {
+    font-family: var(--serif); font-size: 18px; font-weight: 400; margin: 0 0 4px;
+    line-height: 1.25;
+  }
+  .dinner .durl {
+    font-family: var(--mono); font-size: 9.5px; color: var(--faint);
+    word-break: break-all; margin-bottom: 16px;
+  }
+  .dinner img.full {
+    width: 100%; border-radius: 9px; border: 1px solid var(--rule); margin-bottom: 16px;
+    display: block;
+  }
+  .prov {
+    font-family: var(--mono); font-size: 10px; line-height: 1.75; color: var(--dim);
+    background: var(--panel); border: 1px solid var(--rule); border-radius: 9px;
+    padding: 12px 13px; white-space: pre-wrap; word-break: break-all;
+    user-select: text;
+  }
+  /* The human view leads; the raw line is one click away for the tool that
+     this page also is. Collapsed by default — nobody greets an archive with
+     its JSONL. */
+  .evidence summary {
+    cursor: pointer; list-style: none;
+    font-family: var(--mono); font-size: 9px;
+    text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--faint); margin-bottom: 10px;
+  }
+  .evidence summary:hover { color: var(--dim); }
+  .evidence summary::-webkit-details-marker { display: none; }
+  .dmeta {
+    display: grid; grid-template-columns: 64px 1fr;
+    gap: 4px 12px; margin-bottom: 14px;
+    font-family: var(--mono); font-size: 9.5px; line-height: 1.5;
+  }
+  .dmeta .k {
+    color: var(--faint); text-transform: uppercase;
+    letter-spacing: 0.1em; padding-top: 1px;
+  }
+  .dmeta .v { color: var(--dim); word-break: break-all; }
+  .dtext {
+    font-family: var(--serif); font-style: italic;
+    font-size: 13px; line-height: 1.55; color: var(--dim);
+    background: var(--panel); border: 1px solid var(--rule); border-radius: 9px;
+    padding: 12px 14px; max-height: 180px; overflow-y: auto;
+    margin: 0 0 14px; user-select: text; white-space: pre-wrap;
+  }
+  .ann {
+    display: flex; flex-direction: column; gap: 6px;
+    margin: 0 0 14px;
+  }
+  .ann label {
+    font-family: var(--mono); font-size: 8.5px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--faint);
+  }
+  .ann textarea, .ann input {
+    background: var(--panel); border: 1px solid var(--rule); border-radius: 6px;
+    color: var(--text); font-family: var(--sans); font-size: 12px;
+    padding: 7px 9px; outline: 0; resize: vertical;
+  }
+  .ann textarea:focus, .ann input:focus { border-color: var(--moss); }
+  .ann button { align-self: flex-start; }
+  .acts { display: flex; flex-wrap: wrap; gap: 7px; }
+  .acts button, .filters button, .ann button {
+    background: transparent; border: 1px solid var(--rule); border-radius: 6px;
+    color: var(--text); cursor: pointer; padding: 5px 10px;
+    font-family: var(--sans); font-size: 10px; font-weight: 560;
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .acts button:hover, .filters button:hover, .ann button:hover { border-color: var(--moss); color: var(--moss); }
+  .acts button.warn:hover { border-color: #C96A5A; color: #C96A5A; }
+  .empty {
+    column-span: all; color: var(--faint); font-style: italic;
+    padding: 60px 4px; text-align: center; line-height: 1.7;
+  }
+  .note { color: var(--faint); font-family: var(--mono); font-size: 9.5px; margin-top: 10px; }
+  :focus-visible { outline: 1.5px solid var(--moss); outline-offset: 2px; border-radius: 6px; }
+  ::-webkit-scrollbar { width: 10px; }
+  ::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 6px; border: 2px solid var(--bg); }
+  ::-webkit-scrollbar-track { background: transparent; }
+  /* ---- tabs ---- */
+  .tabs { display: flex; gap: 0; margin-right: auto; }
+  .tabs button {
+    background: transparent; border: none; border-bottom: 2px solid transparent;
+    color: var(--faint); font-family: var(--serif); font-size: 16px;
+    cursor: pointer; padding: 6px 14px; transition: color 0.16s, border-color 0.16s;
+  }
+  .tabs button:hover { color: var(--dim); }
+  .tabs button.on { color: var(--text); border-bottom-color: var(--lamp); }
+
+  /* ---- leads tab ---- */
+  .leadcard {
+    break-inside: avoid; margin-bottom: 14px;
+    border: 1px solid var(--rule); border-radius: 12px;
+    background: linear-gradient(160deg, var(--panel-2), var(--panel) 62%);
+    padding: 16px 18px;
+  }
+  .leadcard.on { border-color: rgba(232,190,108,.45); box-shadow: 0 0 22px rgba(232,190,108,.07) inset; }
+  .leadcard h3 { font-family: var(--serif); font-size: 19px; font-weight: 400; margin: 0 0 6px; }
+  .leadcard .ld { font-size: 12px; color: var(--dim); margin: 0 0 12px; }
+  .leadcard .ld b { color: var(--lamp); font-weight: 560; }
+  .leadcard .lacts { display: flex; gap: 6px; flex-wrap: wrap; }
+  .leadcard .lacts button {
+    background: transparent; border: 1px solid var(--rule); border-radius: 6px;
+    color: var(--text); cursor: pointer; padding: 4px 9px;
+    font-family: var(--sans); font-size: 9.5px; font-weight: 560;
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .leadcard .lacts button:hover { border-color: var(--moss); color: var(--moss); }
+  .leadcard.on .lacts button[data-ltoggle] { border-color: rgba(232,190,108,.45); color: var(--lamp); }
+  .leadcard .lnew { display: flex; gap: 8px; }
+  .leadcard .lnew input {
+    flex: 1; background: var(--bg); border: 1px solid var(--rule); border-radius: 6px;
+    color: var(--text); font-family: var(--sans); font-size: 13px; padding: 7px 10px; outline: none;
+  }
+  .leadcard .lnew input:focus { border-color: var(--lamp); }
+  .dfile { display: flex; gap: 8px; margin-top: 8px; }
+  .dfile select {
+    flex: 1; background: var(--bg); border: 1px solid var(--rule); border-radius: 6px;
+    color: var(--text); font-family: var(--sans); font-size: 12px; padding: 5px 8px; outline: none;
+  }
+  .lchip {
+    display: inline-flex; align-items: center; gap: 4px;
+    border: 1px solid var(--rule); border-radius: 5px; padding: 1px 7px;
+    margin: 2px 4px 2px 0; font-size: 11px; background: var(--panel);
+  }
+  .lchip button {
+    background: none; border: none; color: var(--faint); cursor: pointer;
+    font-size: 13px; padding: 0 2px; line-height: 1;
+  }
+  .lchip button:hover { color: var(--bad); }
+  .dfile .none { font-size: 11px; color: var(--faint); align-self: center; }
+
+  /* ---- apps tab ---- */
+  .app-card {
+    background: linear-gradient(160deg, var(--panel-2), var(--panel) 62%);
+    border: 1px solid var(--rule); border-radius: 12px; overflow: hidden;
+    cursor: default; position: relative; padding: 16px;
+    display: flex; flex-direction: column; align-items: center; gap: 12px;
+    break-inside: avoid; margin-bottom: 14px;
+  }
+  .app-card .qr-wrap {
+    position: relative; width: 160px; height: 160px;
+    flex: none; background: #fff; border-radius: 8px; padding: 8px;
+  }
+  .app-card .qr-wrap canvas { display: block; width: 144px; height: 144px; image-rendering: pixelated; }
+  .app-card .qr-note {
+    font-family: var(--mono); font-size: 8.5px; color: var(--faint);
+    text-align: center; line-height: 1.4; margin-top: -4px;
+  }
+  .app-card h3 {
+    font-family: var(--serif); font-size: 17px; font-weight: 400; margin: 0;
+    text-align: center;
+  }
+  .app-card .desc {
+    font-size: 11.5px; color: var(--dim); text-align: center;
+    line-height: 1.5; flex: 1;
+  }
+  .app-card .app-acts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+  .app-card .app-acts button {
+    background: transparent; border: 1px solid var(--rule); border-radius: 6px;
+    color: var(--text); cursor: pointer; padding: 4px 9px;
+    font-family: var(--sans); font-size: 9.5px; font-weight: 560;
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .app-card .app-acts button:hover { border-color: var(--moss); color: var(--moss); }
+  .app-card .badge {
+    position: absolute; top: 10px; right: 10px;
+    font-family: var(--mono); font-size: 7.5px; letter-spacing: 0.1em;
+    background: var(--moss); color: var(--bg); padding: 2px 6px; border-radius: 4px;
+    text-transform: uppercase;
+  }
+
+  /* ---- venture tab ---- */
+  .grid.wide { columns: 360px; }
+  .vcard {
+    break-inside: avoid; margin-bottom: 14px;
+    border: 1px solid var(--rule); border-radius: 12px;
+    background: linear-gradient(160deg, var(--panel-2), var(--panel) 62%);
+    padding: 16px 18px;
+  }
+  .vcard h3 { font-family: var(--serif); font-size: 18px; font-weight: 400; margin: 0; }
+  .vcard .vk {
+    font-family: var(--mono); font-size: 8.5px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--moss); margin: 3px 0 10px;
+  }
+  .vcard p { font-size: 12px; color: var(--dim); line-height: 1.6; margin: 0 0 10px; }
+  .vcard p b, .vcard li b { color: var(--text); font-weight: 560; }
+  .vcard ul { margin: 0 0 10px; padding-left: 16px; }
+  .vcard li { font-size: 11.5px; color: var(--dim); line-height: 1.6; margin-bottom: 6px; }
+  .vcard .vs { font-size: 10.5px; color: var(--faint); margin: 0; font-style: italic; }
+  .vlist .vstep { display: flex; gap: 9px; align-items: flex-start; padding: 7px 0; border-top: 1px solid var(--rule); }
+  .vlist .vstep:first-child { border-top: none; padding-top: 0; }
+  .vstep input { margin-top: 3px; accent-color: var(--moss); cursor: pointer; }
+  .vstep label { font-size: 11.5px; color: var(--dim); line-height: 1.5; cursor: pointer; }
+  .vstep.done label { color: var(--faint); text-decoration: line-through; }
+
+  /* The long documents — the business plan and the radio lab — span every
+     column under the cards, folded until asked for. */
+  .vdoc {
+    column-span: all; break-inside: avoid; margin: 6px 0 14px;
+    border: 1px solid var(--rule); border-radius: 12px;
+    background: linear-gradient(160deg, var(--panel-2), var(--panel) 62%);
+    padding: 14px 18px;
+  }
+  .vdoc summary { cursor: pointer; list-style: none; display: flex; align-items: baseline; gap: 12px; }
+  .vdoc summary::-webkit-details-marker { display: none; }
+  .vdoc summary h3 { font-family: var(--serif); font-size: 18px; font-weight: 400; margin: 0; }
+  .vdoc summary .vk { margin: 0; }
+  .vdoc summary .hint {
+    margin-left: auto; font-family: var(--mono); font-size: 8.5px;
+    letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint);
+  }
+  .vdoc summary:hover .hint { color: var(--dim); }
+  .vdoc[open] summary { margin-bottom: 12px; }
+  .vdoc .md { max-width: 760px; }
+  .vdoc .md h1 { font-family: var(--serif); font-size: 20px; font-weight: 400; margin: 24px 0 6px; color: var(--text); }
+  .vdoc .md h2 { font-family: var(--serif); font-size: 16px; font-weight: 400; margin: 18px 0 6px; color: var(--text); }
+  .vdoc .md h3 {
+    font-family: var(--mono); font-size: 8.5px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--moss); margin: 14px 0 6px;
+  }
+  .vdoc .md p { font-size: 12px; color: var(--dim); line-height: 1.6; margin: 0 0 10px; }
+  .vdoc .md b { color: var(--text); font-weight: 560; }
+  .vdoc .md code { font-family: var(--mono); font-size: 10.5px; color: var(--text); }
+  .vdoc .md ul, .vdoc .md ol { margin: 0 0 10px; padding-left: 18px; }
+  .vdoc .md li { font-size: 11.5px; color: var(--dim); line-height: 1.6; margin-bottom: 5px; }
+  .vdoc .md table { border-collapse: collapse; margin: 0 0 12px; font-size: 11px; }
+  .vdoc .md th, .vdoc .md td {
+    border: 1px solid var(--rule); padding: 4px 8px; text-align: left;
+    vertical-align: top; color: var(--dim); line-height: 1.5;
+  }
+  .vdoc .md th {
+    color: var(--text); font-family: var(--mono); font-size: 8.5px;
+    letter-spacing: 0.1em; text-transform: uppercase;
+  }
+  .vdoc .md pre {
+    font-family: var(--mono); font-size: 10px; line-height: 1.5; color: var(--dim);
+    background: var(--panel); border: 1px solid var(--rule); border-radius: 8px;
+    padding: 10px 12px; overflow-x: auto; margin: 0 0 12px;
+  }
+  .vdoc .md blockquote { margin: 0 0 10px; padding-left: 12px; border-left: 2px solid var(--moss); }
+  .vdoc .md blockquote p { font-size: 10.5px; color: var(--faint); font-style: italic; }
+  .vdoc .md hr { border: 0; border-top: 1px solid var(--rule); margin: 20px 0; }
+  .vdoc .md a { color: var(--moss); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .card:hover { transform: none; }
+    .detail { transition: none; }
+  }
+</style>
+</head>
+<body>
+  <div class="veil"></div>
+  <div class="shellwrap">
+    <header>
+      <h1>The Trove</h1>
+      <span class="tabs">
+        <button id="tab-clips" class="on">Clips</button>
+        <button id="tab-leads">Leads</button>
+        <button id="tab-apps">Apps</button>
+        <button id="tab-venture">Venture</button>
+      </span>
+      <span class="count" id="count"></span>
+      <span class="filters" id="filters">
+        <input id="q" placeholder="search title, url, text…" autocomplete="off" />
+        <select id="fkind"><option value="">all kinds</option></select>
+        <select id="fapp"><option value="">all sources</option></select>
+        <select id="flead"><option value="">all leads</option></select>
+        <button id="refresh">reload</button>
+      </span>
+      <span class="filters" id="vtools" style="display:none">
+        <button id="vcompile">compile to archive</button>
+      </span>
+    </header>
+    <div class="body">
+      <div class="grid" id="grid"></div>
+      <aside class="detail" id="detail"><div class="dinner" id="dinner"></div></aside>
+    </div>
+  </div>
+
+<!-- The long documents: the business plan and the home radio lab, verbatim
+     markdown mirrored in Glamourwell's docs/. Rendered under the Venture
+     cards and compiled after them; see VDOCS in the script below. -->
+<script type="text/markdown" id="vdoc-plan">
+# The business plan
+
+*Draft 2, 2026-10-18. Companion to the venture plan in the Trove's Venture tab. Private: this file stays on the hoard remote and off any public one.*
+
+## Constraints this draft is built on
+
+- **Texas.** Entities, counsel, grants and privacy law are all Texas unless stated.
+- **No capital.** A few hundred to a low few thousand dollars can be scrounged for hardware. Nothing for salaries, counsel retainers or marketing.
+- **Solo.** One person's time is the only budget line that is not zero.
+- **No buyers.** Nobody has yet said they would pay for a cohort, a job or a link.
+- **Secrecy.** No public thesis, no public name that links to the estate, no public remote for this repo.
+
+The consequence: the first year is a proof year, not a revenue year. Each pillar below gets a full treatment, and the order they go live in is set by what each one costs.
+
+## The business in one paragraph
+
+Three products on one trust perimeter. A **browser** whose consent lives in the chrome, with a measurement lab inside it, that lets members lease measured distillates of their own behaviour to vetted buyers. A **compute cluster** of member-owned nodes that sells consented GPU jobs to the buyers hyperscalers will not serve. A **solar community ISP** whose relays are those same nodes, run as a co-op at cost. The browser and the cluster earn market fees. The fees pay for the wires, the panels and the batteries. The member owns the node, the data and, through the co-op, the relay.
+
+## One loop, three bodies, one order
+
+```
+         browser (panel)  ──fees──►  corp  ──contracts──►  member nodes
+               │                       │                        │
+          cohort leases          compute market           relays on rooftops
+               │                       │                        │
+            buyers                  job buyers          co-op pipe (at cost)
+```
+
+- **The corp** (Texas LLC) runs the browser, the marketplace and the ledger. It contracts with node owners and with buyers. It never routes bytes.
+- **The member node** (the member's own machine, running Glamourwell) is the only place data or compute ever leaves from, under desk approval.
+- **The pipe** (Texas cooperative association) owns the relays and buys transit. It logs almost nothing and has no data business.
+
+Order of proof: **browser, then cluster, then pipe.** The browser is software that exists. The cluster needs federation, which is engineering. The pipe needs rooftops, counsel and a February, and it is the least reversible of the three.
+
+---
+
+# Pillar 1: the browser
+
+*Ifreglen shell, the Wilds, Ment Jelly on steroids.*
+
+## Product
+
+A browser where consent is a property of the chrome, not a checkbox on a page. Every page runs under the shell's capability gate; a capture tab is the only door through which anything is recorded; a jar is a separate identity with separate stores. Inside it, the measurement lab: conditioned cohorts, an audit ledger, and feed-response proof that says what a page or a feed actually did to the person using it.
+
+The product sold is a **cohort lease**. A buyer specifies a cohort by conditions. The desk on each member's node approves or declines the lease. The buyer receives a distillate: aggregated measures and pseudonymous per-member time series, with the ledger entry as provenance proof. Never a DOM, never a URL list, never a raw mouse trail unless that member's jar explicitly allows it. The data exits at the member's machine. The corp never holds a profile.
+
+What makes it worth more than a survey panel: the measured personal ranker. A member's own model of what the feed is doing to them, built on the node, which no amount of raw surveillance has.
+
+## Customer
+
+Three buyer types, in order of how easy the first sale is:
+
+1. **University labs.** Communication, psychology, human-computer interaction and media-effects departments buy panel access routinely and are used to consent paperwork. A Texas lab with an existing review-board protocol for browsing behaviour is the likeliest first buyer. Hundreds to low thousands per study.
+2. **UX and market research firms.** They pay panels for participants and cannot measure what a feed did to a participant. Measurement is the premium. Thousands per study.
+3. **AI labs and model builders.** Provenance-clean behavioural data for evaluation, alignment and ranker research, under a legal regime where the cost of unconsented training data rises every year. The buyer the venture plan wants and the hardest to reach first. Price unknown until the first two exist.
+
+Not advertisers and not ad-tech, first or ever. They are the buyers who make the subpoena quote come true.
+
+## Offer and price
+
+Price per member per study week, with the split fixed in the member terms. The opening split sends most of the price to the member and a minority market fee to the corp, because the corp's early problem is recruiting members, not margin. A second product, later: self-serve cohort tooling for repeat buyers at a subscription, which is the only recurring revenue the browser can produce without selling anything about anyone.
+
+## Member economics
+
+The venture plan's adverse-selection risk is the whole recruiting problem. People eager to sell raw data are low-value subjects. Recruit the way a research panel does: small, screened, by invitation, with members who understand what measurement is for. Ten members is a cohort. A hundred is a product. A thousand is a company.
+
+A member costs nothing to host, because the member hosts themself. A member costs onboarding time and desk support, and those are the real limits on a solo year.
+
+## Competition
+
+- **Paid panels** such as Prolific and the survey-panel industry: consent exists, measurement does not.
+- **Data brokers:** measurement at scale, consent absent, and every regulatory wind against them.
+- **Consent browsers** such as Brave: consent in the chrome, no measurement product, no member-held profile.
+- **Dead attempts** such as Mozilla Rally: proved researcher demand and died on the cost of running a central panel. The member-hosted node is the answer to that cost.
+
+The gap: a consented panel with measurement, where the panel costs nothing to host because the members host it.
+
+## Regulatory
+
+Privacy counsel before the first sale. Things to put in front of them:
+
+- **Texas Data Privacy and Security Act.** Consent, purpose limitation, revocation and deletion. The desk and the jar already embody most of it; the member terms must say so in the statute's words.
+- **Texas data broker registration.** Texas defines a data broker by revenue from personal data the business did not collect directly from the individual. The panel collects directly from consenting members, which likely keeps it outside the definition. An opinion to buy, not to assume.
+- **Biometrics.** Texas's statute lists retina, iris, fingerprint, voiceprint and hand or face geometry. Mouse trails and dwell are not on the list. Illinois and a few other states are stricter, so the member terms should say where members may reside.
+- **Research ethics.** University buyers need the panel to fit their review-board protocol. A standard consent text makes the first sale faster.
+- **Payments to members.** Dollars, invoices, and a tax form above the reporting threshold.
+
+## Milestones
+
+| Month | Milestone | Cost |
+|---|---|---|
+| 1 | Collector schema extended: view time, clicks, mouse trails, dwell, behind the capture toggle, jar-isolated | time |
+| 2 | Product sheet and member terms drafted | time |
+| 3 | Ten-member closed alpha, desk approving leases to a fake buyer | time |
+| 4 | Buyer list of twenty, first five conversations | time |
+| 6 | Counsel review of member terms and buyer contract | low thousands |
+| 7 | Texas LLC filed, first buyer signed | about $300 |
+| 8 | First paid cohort sale closed and ledgered | none |
+| 9 | Second buyer from the first buyer's reference | time |
+
+## What kills it
+
+- Recruiting members before there is a buyer, which produces a panel nobody pays for.
+- Selling before counsel reads the member terms.
+- Saying "most complete profile" anywhere, ever. Sell a verified research panel, never completeness.
+- Forking the capability model to make measurement easier. An opted-in jar is enough. A second shell is the one thing this estate must never build.
+
+---
+
+# Pillar 2: the cluster
+
+*Glamourwell nodes, lanes, the roost, Müt.*
+
+## Product
+
+A market for consented jobs on member-owned machines. A node already offers whichever of three lanes it can run: diffusion, text through Ollama, and vision. The cluster extends the roster from one household to a federation of wells that share no roost, and puts a price and a ledger entry on every job that crosses a boundary. The desk approves the lease of a lane the same way it approves the lease of a distillate. Müt stays the face of the node; the market is behind the door, not instead of it.
+
+Two things are sold:
+
+1. **Compute leases.** A buyer's job runs on a member's lane. Weights and inputs arrive, outputs leave, nothing is retained, the ledger records what ran and under what consent. The scarce property is locality and consent, not price.
+2. **Provenance.** The same ledger that records a cohort lease records a job. A buyer who needs to show where a model's inference ran, on whose consent, and on what data, gets a receipt the hyperscaler cannot issue.
+
+Members get the cluster for free among themselves. A household with a card lends its lane to a household without one. That is the member service, and it exists before the market does.
+
+## Customer
+
+The people hyperscalers will not serve, not the people who shop on price:
+
+1. **Members.** The first customer is the roost itself. A household without a card renders on a neighbour's. This costs nothing and proves federation.
+2. **Local professionals with sovereignty constraints.** Clinics, law firms, accountants, small agencies that cannot send documents to a cloud model and cannot justify a server. A job on a vetted local node, with a receipt, under a written agreement.
+3. **Researchers and small model builders.** Single-batch inference and evaluation on consumer cards, with consent and provenance attached. Small-to-mid models only; training across internet links is physically out of scope.
+4. **The browser's buyers.** A cohort buyer who also needs inference on the distillate, on the member's own node, so the data never leaves at all. This is the product nobody else can offer and the one to build toward.
+
+## Offer and price
+
+Market fee on each job, with the majority to the node owner. Consumer cards on open GPU markets rent for a few tens of cents per hour, and the cluster does not compete there; it prices the receipt and the locality, not the hour. A clinic pays for a job it can defend, not a job that was cheap. Member-to-member jobs are free and are never ledgered as revenue.
+
+## Economics
+
+A node's marginal cost is electricity and wear. A card drawing a few hundred watts at Texas residential rates costs its owner a few cents per hour. The member's share must clear that with room, or the lane stays shut. The corp's cost is the market software, the ledger and dispute handling, which is the solo founder's time.
+
+## Competition
+
+- **Open GPU markets** such as Vast.ai, io.net, Render, Akash: price shoppers, no consent layer, no locality promise, mostly anonymous hosts.
+- **Volunteer compute** such as BOINC and Petals: proven that consumer cards federate, no money changes hands.
+- **Hyperscalers:** cheaper per token for anything they are willing to run, and unwilling or unable to run the rest.
+- **On-premises servers:** the real alternative for a clinic, and the one whose capital cost the cluster undercuts.
+
+The edge is consent and locality, never price. The venture plan already says the cluster is a member service first and a revenue pillar never; this plan agrees and adds that provenance is the part that might make it one.
+
+## Regulatory
+
+- **Data processing agreements.** Every professional buyer needs one. A health-care buyer needs a business associate agreement under federal health privacy law, which commits the node owner to things a volunteer will not want to sign. Serve clinics through a vetted subset of nodes, or not at all in year one.
+- **Acceptable use.** A job that generates something illegal runs on a member's hardware in a member's home. The market needs a policy, a refusal path and a ledger that proves what was asked.
+- **Securities.** Payment for jobs is an invoice. A token for jobs is a securities instrument. Lawyer before chain, as the venture plan says.
+
+## Engineering prerequisites
+
+These are the reason the cluster is second and not first:
+
+- **Federation.** Two wells that share no roost must pair, discover each other's lanes and route a job, over LAN or onion. Glamourwell's single-main design makes this engineering, not configuration. The home radio lab's routed-mode pairing test is the first result.
+- **Job isolation.** A buyer's job must not see the member's hoard, desk or other jobs.
+- **Verification.** A buyer must be able to tell that the job ran as specified. Redundant execution on two nodes for a sample of jobs is the cheap first answer.
+- **The Linux port.** A relay is a Linux box. The lab's Windows assumption list is the port's work plan.
+
+## Milestones
+
+| Month | Milestone | Cost |
+|---|---|---|
+| 2 | Two wells paired with no shared roost, one lane borrowed across the pair | time |
+| 5 | Gateway running on a Linux SBC, Windows assumptions listed | time, within the lab |
+| 9 | Routed-mode pairing across the radio link, a job run end to end | time |
+| 12 | Ledger entry per cross-well job, member-to-member only | time |
+| 15 | First professional buyer under a written agreement, vetted node | counsel review |
+| 18 | Verification by sampled redundant execution | time |
+
+## What kills it
+
+- Pricing against the open GPU markets. The cluster loses every price comparison and should never enter one.
+- Taking a health-care buyer before the node vetting and the agreements exist.
+- A job that escapes isolation on a member's machine. One incident ends member trust, and member trust is the whole product.
+
+---
+
+# Pillar 3: the pipe
+
+*The solar community ISP.*
+
+## Product
+
+Connectivity at cost from a member-owned cooperative whose relays are on rooftops the community owns or leases, powered by solar with a grid trickle for February, with a Glamourwell node at each relay. Members pay dues. The co-op pays transit, maintenance and the next rooftop. Nobody profits from the pipe, by design, because a pipe with a data business is a grenade.
+
+What the pipe is: 5 and 6 GHz point-to-multipoint for member links, 60 GHz point-to-point for backhaul between rooftops, and a wired or licensed upstream to real transit. What it is not: a cell carrier, a LoRa network, a replacement for the root of the internet. "Not beholden to cell towers" means the community owns the high points, not that physics changed.
+
+The second internet rides on it but does not depend on it: a `.well` namespace resolved by the member's own node, bridged to legacy DNS until it does not need to be, and a self-addressed IPv6 overlay over whatever medium is there. Names first, overlay second, root replacement never promised.
+
+## Customer
+
+Members of a community within line of sight of one rooftop, in order of fit:
+
+1. **Households the incumbents under-serve.** Exurban and rural Texas has millions of people on satellite, fixed wireless or nothing. A rooftop with ten member links at co-op dues is a real alternative in those places and a curiosity in a city with fibre.
+2. **The roost.** Members who already run nodes and want their nodes reachable without an incumbent in the path.
+3. **Small institutions** that want a resilient second connection: a church, a volunteer fire department, a grain co-op. They also own the high points.
+
+## Offer and price
+
+Co-op dues at cost. The number falls out of the arithmetic below, and the first relay's dues will be set by its ten members looking at its bill of materials. A joining fee covers the member's own radio and mount. No contracts, no data caps, no data business.
+
+The honest competitor is satellite. Low-earth-orbit service in rural Texas costs a household something over a hundred dollars a month and arrives in a box. The co-op wins where it can be cheaper, more local, and owned, and it loses where nobody will climb the roof. Plan for the second case.
+
+## Economics
+
+One relay, from the venture plan and the lab:
+
+| Line | Approx. |
+|---|---|
+| Relay build: radios, solar, battery, enclosure, node, mount | $3,000 to $4,000 |
+| Member links: radio and mount per household | $150 to $250 each |
+| Upstream transit for one relay | hundreds per month, depending entirely on what is available at the high point |
+| Maintenance | the thing that kills community networks; budget a day a month and a spare of everything |
+
+Ten members on one relay at dues in the range of satellite minus a third covers transit and a maintenance fund and pays back the relay in roughly a year. Those are the numbers the first relay must confirm or refute, which is why the lab's logbook is written as if it were a grant application.
+
+## Capital
+
+The pipe is the only pillar that needs money it cannot earn first:
+
+- **Member pre-payment.** Ten members pre-paying a joining fee and a quarter's dues is the first relay's capital. It is also the demand proof.
+- **Public broadband money.** Texas is one of the largest recipients of federal broadband funds, administered by the Texas Broadband Development Office, alongside rural utility programs at the federal level. They require an established entity, matching funds and a defined service area, and they take a year. A Phase 3 conversation, prepared for from Phase 1.
+- **Precedents.** Althea proved per-byte payments between neighbours and then met regulators when it tokenised. guifi.net proved scale over twenty years with subsidy. NYC Mesh runs on donations. The co-op model sits between the three: dues, not donations, not tokens.
+- **Texas electric cooperatives** are the local precedent for member-owned infrastructure and own poles and high points across rural Texas. A partner conversation, once the first relay exists.
+
+## Regulatory
+
+Telecom counsel before the first non-household member link:
+
+- **Unlicensed spectrum.** 5 and 6 GHz under federal Part 15 with certified gear is legal without a licence. 3.5 GHz CBRS for around-the-foliage links needs spectrum access system registration and paperwork; later.
+- **Being an ISP.** A facilities-based broadband provider has federal filing duties: broadband availability data collection, and lawful-intercept capability under the communications assistance law, which small providers typically meet through a trusted third party. Neither is hard; both must be budgeted.
+- **Privacy.** The regulatory classification of broadband has flipped more than once this decade, and with it which agency polices subscriber data. Design the pipe to the strictest reading: it logs what it needs to route and bill, nothing else, and sells nothing. That is the firewall, and it is cheaper than following the litigation.
+- **The co-op.** A Texas cooperative association under the Business Organizations Code, member-owned, one member one vote, separate from the LLC.
+- **Rooftops.** A lease or easement per high point, in writing, before the first bolt.
+- **Tokens.** Fractional ownership of towers is a regulated instrument. Dues and invoices, not tokens.
+
+## Milestones
+
+| Month | Milestone | Cost |
+|---|---|---|
+| 3 | Home radio lab live on solar | hundreds |
+| 5 | A month of link, power and heat logs; the 72-hour storm test | time |
+| 10 | Relay bill of materials with receipts, first rooftop identified | time |
+| 12 | Decide: relay pilot and co-op, or another year of panel and cluster | the decision |
+| 14 | Telecom counsel, co-op formed, rooftop lease signed | low thousands |
+| 15 | Ten members pre-paid | the capital |
+| 16 | First relay live, five to ten links, grid fallback designed in | $3,000 to $4,000 |
+| 19 | Three months of service through a Texas winter | time |
+| 22 | Grant application with the logbook as evidence | time |
+
+## What kills it
+
+- Building the relay before the panel pays for it, because it is more fun.
+- Putting a non-household member on a home link before the co-op exists. Residential terms forbid resale, and a hobby becomes an unlicensed carrier.
+- February. Two overcast weeks with a battery sized for summer.
+- Maintenance debt. A relay nobody drives to must come back on its own, which is the lab's unattended-week test.
+- Merging pipe and marketplace, ever.
+
+---
+
+# Across the pillars
+
+## Consolidated milestones
+
+| Month | Browser | Cluster | Pipe |
+|---|---|---|---|
+| 1 to 3 | schema, terms, ten-member alpha | two wells paired | radio lab live |
+| 4 to 6 | buyer list, counsel | Linux SBC port | storm test, logs |
+| 7 to 9 | LLC, first paid sale, second buyer | routed pairing, job across the link | — |
+| 10 to 12 | third buyer, cohort tooling | ledger per cross-well job | bill of materials, rooftop, the decision |
+| 13 to 18 | repeat buyers, first AI-lab conversation | first professional buyer, verification | counsel, co-op, pre-payment, first relay |
+| 19 to 24 | self-serve tooling | vetted-node tier | a winter of service, grant application |
+
+Every month a milestone slips is fine. A milestone done out of order is not, because each pillar costs more than the one before it and each depends on the one before it.
+
+## Revenue sketch
+
+Deliberately rough, and only to show the shape:
+
+| Year | Browser | Cluster | Pipe |
+|---|---|---|---|
+| 1 | a few paid studies, low thousands | none; member-to-member | none; the lab |
+| 2 | repeat buyers, tens of thousands | first professional jobs, low thousands | one relay, dues cover transit |
+| 3 | AI-lab buyers, the first real number | provenance receipts, a real line | two or three relays, grant-funded |
+
+The browser pays the founder before anything else does. The cluster pays the members. The pipe pays for itself and nothing more, by design.
+
+## Stealth
+
+- **Name.** A neutral trade name for the browser and the corp that contains none of the estate's words: no well, hoard, jar, wild, roost or Müt. A federal trademark search before you like it.
+- **Site.** A holding page under that name with a waitlist and one sentence about a consented research panel. No ISP, no cluster, no Urbit, no NVIDIA, no profile language, no architecture. WordPress is fine because there is nothing on it worth attacking.
+- **Disclosure.** The venture plan and this plan go to counsel and to named buyers under mutual NDA, and to nobody else. Members see the member terms. Co-op members see the relay's bill of materials and the dues arithmetic, which is theirs by right.
+- **Publication clock.** If any part of the consent ledger or the feed-response proof is worth patenting, the first public description starts a one-year clock in the United States. Decide before the site describes anything.
+- **This repo and the Trove.** The repo's only remote is the hoard. The venture plan lives in the Trove inside the shell. Keep both that way. If a public mirror of the code ever exists, neither plan is in it.
+
+## Honest risks, whole venture
+
+- **Regulatory.** The firewall is the answer to every one. Never merge pipe and marketplace; never tokenise before counsel; never say completeness.
+- **The single founder.** Three pillars and one person is a sequencing problem until it is a hiring problem. The browser's first revenue is what buys the second person, and the second person is an engineer for federation.
+- **Federation.** Every pillar after the first rests on two wells that share no roost. It is month two for a reason.
+- **Adverse selection and price shoppers.** The browser must refuse the eager raw-data seller; the cluster must refuse the price comparison. Both are the same discipline: sell provenance, not volume.
+- **February, rooftops, maintenance.** Physical infrastructure is the least reversible layer, so it goes last in proofs and first in entity planning.
+- **Bravado.** The venture plan already sorted its own claims into realistic and bravado. This plan keeps the sorting: the ISP is a rooftop co-op, the cluster is a member service with a provenance edge, the browser is a research panel. Claim what each does for members, not what it does to an incumbent.
+</script>
+<script type="text/markdown" id="vdoc-lab">
+# The home radio lab
+
+*Draft 1, 2026-10-18. Phase 1 of the business plan. A lab bench, not a service: nobody outside the household uses this link.*
+
+## What it proves
+
+A well on the far end of a 5 GHz link, on solar, reachable by onion, serving a page. On the way it produces the two documents Phase 3 needs: a relay bill of materials with real prices, and the list of Windows assumptions in the Glamourwell gateway.
+
+## The shape
+
+```
+house                                  far end (yard, shed, fence post, neighbour's tree line)
+┌──────────────┐    5 GHz link     ┌────────────────────────────────────────┐
+│ home router  │◄── radio A ◄════►│ radio B ── PoE ── 12 V bus ── SBC well  │
+│ (home ISP)   │    (house power)  │              ▲                          │
+└──────────────┘                   │   panel ─► charge controller ─► battery │
+                                   └────────────────────────────────────────┘
+```
+
+Radio A sits on the house, powered from indoors by its own injector, bridged onto the home LAN. Radio B sits at the far end with the SBC, and everything there runs off one 12 V battery that the panel keeps charged. The far well reaches the internet through the link and the home router, and reaches the world by onion.
+
+## Parts
+
+Prices are approximate United States retail in 2026. Check them before ordering; the point of the lab is to replace these guesses with receipts.
+
+### The link
+
+| Part | Qty | Approx. | Notes |
+|---|---|---|---|
+| Ubiquiti LiteBeam 5AC Gen2 | 2 | $130 pair | Directional 23 dBi dish, unlicensed 5 GHz, 24 V passive PoE, the honest miniature of a member link. Injector included. |
+
+Alternative: a pair of NanoStation 5AC Loco for about $110. Wider beam, easier to aim across a yard, less like a real relay. MikroTik SXTsq 5 ac is the non-Ubiquiti equivalent at a similar price. Skip 60 GHz for the lab; it is a backhaul technology and costs four times as much.
+
+### Far-end power
+
+| Part | Qty | Approx. | Notes |
+|---|---|---|---|
+| 100 W monocrystalline panel, 12 V nominal | 1 | $80 | Rigid, with MC4 leads. |
+| 12 V 50 Ah LiFePO4 battery | 1 | $150 | Built-in BMS. Lead-acid is cheaper and a mistake: half the usable capacity and it dies in heat. |
+| Victron SmartSolar MPPT 75/15 | 1 | $95 | The expensive choice on purpose: it logs daily yield, voltage and state of charge to a phone app, which is most of the power measurement for free. A $20 PWM controller works and tells you nothing. |
+| 12 V to 24 V step-up converter, 2 A | 1 | $15 | Feeds the radio's passive PoE. |
+| Passive PoE injector, 24 V | 1 | $10 | Or a single DC-to-PoE injector board in place of both, about $40. |
+| 12 V to 5 V buck converter, 5 A, USB-C out | 1 | $15 | Feeds the SBC. A Pi 5 wants 5 A; cheaper 3 A bucks will brown it out under load. |
+| IP65 polycarbonate enclosure, roughly 30 × 20 × 15 cm | 1 | $30 | Battery, controller and SBC inside. Radio outside on the mast. |
+| Fuse holder, fuses, 12 AWG wire, MC4 pair, cable glands, terminals | lot | $40 | A fuse on the battery lead is not optional. |
+| Pole or J-mount for the radio, ground stake or wall mount for the box | 1 | $30 | Line of sight is the whole game; a metre of extra height beats a better radio. |
+
+### The far well
+
+| Part | Qty | Approx. | Notes |
+|---|---|---|---|
+| Raspberry Pi 5, 8 GB | 1 | $80 | Runs Node, runs Tor, runs the gateway. Will not run a useful diffusion or Ollama lane, and that is fine for a port probe. |
+| 64 GB microSD, A2 class | 1 | $12 | Good enough for the lab. The content-addressed hoard will want an SSD on a real relay; note that cost in the bill of materials but do not buy it yet. |
+| Case with fan or heatsink | 1 | $15 | The box will be hot in August. |
+
+Alternative: a used x86 mini PC with an N100 for about $150 removes any ARM surprises from the port probe, at roughly twice the power draw. Choose it if the first week on the Pi turns up ARM-specific problems rather than Linux-specific ones.
+
+### Instruments
+
+| Part | Qty | Approx. | Notes |
+|---|---|---|---|
+| Multimeter | 1 | $20 | |
+| Inline DC watt meter, 12 V | 1 | $18 | Measures the real draw of each load. The Victron sees only the sum. |
+| USB-C inline power meter | 1 | $15 | The SBC's draw on its own. |
+| Small outdoor thermometer or a $5 temperature sensor on the Pi | 1 | $10 | Box temperature versus Pi temperature. |
+
+### Total
+
+About **$760** for the recommended build. About $730 with the Loco radios. Add roughly $200 for a 100 Ah battery and a second 100 W panel, which is the storm-case configuration described below; buy that only if the first month's logs say the 50 Ah build fails the covered-panel test.
+
+## Sizing, so the numbers in the logs mean something
+
+Expected far-end load:
+
+| Load | Approx. draw |
+|---|---|
+| LiteBeam, active | 5 to 7 W |
+| Pi 5, idle | 3 to 4 W |
+| Pi 5, serving and running Tor | 5 to 8 W |
+| Converter losses | 10 to 15 % |
+| **Total, continuous** | **12 to 16 W**, say 15 W |
+
+That is about 360 Wh per day. A 50 Ah LiFePO4 holds about 640 Wh, of which 80 to 90 % is usable, so roughly a day and a half with no sun. A 100 W panel in Texas yields around 400 Wh on a clear day and about 300 Wh on a short winter day, so the system is net positive on any sunny day and loses ground on every overcast one. Two overcast days drain it. That is the February problem in miniature, and it is why the lab exists: the logs will say whether the real relay needs 100 Ah and 200 W, or a grid trickle, or both.
+
+## Setup notes
+
+- Set the radios' country code to the United States and leave the stock antennas on. The gear is Part 15 certified as sold; the certification is what makes the link legal without a licence.
+- Scan the spectrum from the house radio before picking a channel. Neighbours' Wi-Fi lives in the same band, and DFS channels require the radio to vacate when it hears radar.
+- Bridge mode on both radios, WPA2 on the link, management on a fixed address.
+- Align with the signal tool in the radio's web interface, then lock the mounts. Write down the received signal level; it is the first line of the logbook.
+- The far Pi gets a Linux distribution, Node at the version the estate pins, Tor from the distribution's package, and the Glamourwell gateway from this repo. Every step that does not work on the first try is a Windows assumption, and goes on the list.
+- Everything inside the box is one 12 V bus. Battery to fuse to controller's load terminals, then to the two converters. Panel to the controller's PV terminals. Never panel to battery directly.
+
+## What to measure
+
+Keep one logbook. A plain text file on the far well, synced to the hoard, is the right place: the lab's data lives on the node it measures.
+
+### The link
+
+1. **Throughput.** iperf3 in both directions, TCP and UDP, once at install and then daily for a month. Record the radio's reported signal, capacity and airtime beside each run.
+2. **Latency and loss.** A ping every minute for the month, with jitter and loss per hour. This is the number a member feels.
+3. **Weather.** Note rain, fog and heavy heat beside the daily run. 5 GHz barely fades in rain, and the logbook should show that rather than assume it.
+4. **Interference.** Which channel you chose, why, and whether you had to move. A DFS event is worth writing down.
+5. **Distance.** The lab distance in metres, and the signal level at that distance. With the dish's gain and the link budget this extrapolates to the kilometres a real member link needs.
+
+### Power
+
+6. **Each load on its own.** Radio, Pi idle, Pi serving a page, Pi during whatever the heaviest job it can run is. Inline meter, five minutes each.
+7. **Daily yield and daily consumption.** From the controller's log, every day for a month. The gap between them is the design margin.
+8. **Morning state of charge.** The lowest point of each day. A downward trend across a week of ordinary weather means the panel is undersized.
+9. **The storm test.** Cover the panel for 72 hours in month two. Record the hour the well goes dark. This single number sizes the real relay's battery.
+10. **Heat.** Box temperature and Pi temperature through the hottest week. LiFePO4 cells stop accepting charge above about 45 °C, and the Pi throttles above 80 °C. If either happens, the box needs shade or a vent before anything goes on a roof.
+
+### The well
+
+11. **The Windows list.** Every path, service, port, process or file-locking assumption the gateway makes that Linux does not share. Keep it as a list, not fixes. It is the port probe's deliverable.
+12. **Pairing across the link.** Does the far well join the roster as a LAN peer through the bridge? Then set the link to routed instead of bridged and try again, because a real relay will not be on the member's LAN. The second result is the federation question in physical form.
+13. **Onion reachability.** From a phone on cellular, time to first byte of a page served by the far well. Record it beside the link latency so the two can be separated.
+14. **Recovery.** Pull the far power and restore it. Time until the well is serving again and reachable by onion, with no human touching it. A relay nobody can drive to must come back on its own.
+15. **A week unattended.** No logins for seven days. What broke, what filled up, what the watchdog did.
+
+## What comes out
+
+- A relay bill of materials with receipts, scaled to the storm-case battery and panel the logs demanded.
+- The Windows assumption list, which becomes the port's work plan.
+- A logbook that a grant application or a counsel conversation can quote: this is what a link does, this is what it costs, this is what it survives.
+- One decision: whether a Pi-class gateway is a relay, or whether the real relay is a mini PC. The lab should answer it in a month.
+</script>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+// QR codes for downloadable apps are generated server-side (lib/qr.js) and
+// returned as SVG data URIs by the roost:app-qr IPC handler. The Trove
+// displays them with plain <img> tags — no canvas, no broken hand-rolled
+// encoder. See shell/lib/qr.js for the actual QR implementation.
+
+// The Trove reads its own archive through the fs capability — ScopedFs confines
+// every path to data/trove, enforced in the main process after realpath, so a
+// symlink pointing outward is caught too. Opened outside the shell (in a plain
+// browser, for editing) this whole page degrades to a message rather than an
+// error page.
+const hasFs = !!(window.roost && window.roost.fs);
+
+let lines = [];      // clip events, newest first
+let forgotten = new Set();
+let selected = null;
+let leads = [];      // folded research leads: { id, name, t, clips:Set }
+let leadActive = null;
+const thumbCache = new Map();
+
+// ---- tab switching ------------------------------------------------------------
+let tab = "clips";
+function setTab(t) {
+  tab = t;
+  $("tab-clips").classList.toggle("on", t === "clips");
+  $("tab-leads").classList.toggle("on", t === "leads");
+  $("tab-apps").classList.toggle("on", t === "apps");
+  $("tab-venture").classList.toggle("on", t === "venture");
+  $("grid").classList.toggle("wide", t === "venture");
+  $("filters").style.display = t === "clips" ? "" : "none";
+  // Compiling writes through fs and rides the bus, so the button only
+  // exists inside the shell. Outside it, the tab still renders — the
+  // plan is readable anywhere, it just can't be filed from a plain browser.
+  $("vtools").style.display = t === "venture" && hasFs ? "" : "none";
+  $("count").textContent = "";
+  $("detail").classList.remove("open");
+  selected = null;
+  if (t === "clips") { renderClips(); }
+  else if (t === "leads") { renderLeads(); }
+  else if (t === "apps") { renderApps(); }
+  else { renderVenture(); }
+}
+$("tab-clips").addEventListener("click", () => setTab("clips"));
+$("tab-leads").addEventListener("click", () => setTab("leads"));
+$("tab-apps").addEventListener("click", () => setTab("apps"));
+$("tab-venture").addEventListener("click", () => setTab("venture"));
+
+// ---- apps tab ----------------------------------------------------------------
+let apps = [];
+let appsQrCache = new Map();  // app id -> { url, canvas }
+
+async function loadApps() {
+  apps = [];
+  try {
+    const r = await window.roost.fs.read("apps.json");
+    if (r && r.data) {
+      const parsed = JSON.parse(r.data);
+      if (Array.isArray(parsed)) apps = parsed;
+    }
+  } catch { /* apps.json missing or unreadable */ }
+  appsQrCache.clear();
+}
+
+async function resolveAppQr(app) {
+  if (appsQrCache.has(app.id)) return appsQrCache.get(app.id);
+  const qrCfg = app.qr || {};
+  let url = qrCfg.url || "";
+  let qrImg = "";
+  // If the entry has a static URL, use it. Otherwise resolve the template
+  // via IPC and the server returns both the URL and an SVG data URI.
+  if (!url && qrCfg.template) {
+    try {
+      if (window.roost && window.roost.apps && window.roost.apps.qr) {
+        const r = await window.roost.apps.qr(qrCfg.template);
+        if (r) { url = r.url || ""; qrImg = r.qr || ""; }
+      }
+    } catch {}
+  }
+  if (!url) url = qrCfg.template || "";
+  const result = { url, qr: qrImg, note: qrCfg.note || "" };
+  appsQrCache.set(app.id, result);
+  return result;
+}
+
+async function renderApps() {
+  if (!hasFs) {
+    $("grid").innerHTML = '<p class="empty">The Trove reads its archive through the shell.<br>Open it inside Ifreglen.</p>';
+    return;
+  }
+  if (!apps.length) await loadApps();
+  if (!apps.length) {
+    $("grid").innerHTML = '<p class="empty">No downloadable apps yet.<br>Build something in Ifreglen and register it here.</p>';
+    return;
+  }
+
+  $("grid").innerHTML = apps.map((a) => `
+    <div class="app-card" data-app-id="${esc(a.id)}">
+      <div class="qr-wrap">
+        <img id="qr-${esc(a.id)}" src="" alt="QR code for ${esc(a.name)}" style="display:block;width:144px;height:144px;image-rendering:pixelated;" />
+      </div>
+      ${a.qr && a.qr.note ? `<p class="qr-note">${esc(a.qr.note)}</p>` : ""}
+      <h3>${esc(a.name)}</h3>
+      ${a.description ? `<p class="desc">${esc(a.description)}</p>` : ""}
+      <p class="qr-note" style="margin-top:2px;word-break:break-all;font-size:8px;color:var(--faint);" id="url-${esc(a.id)}"></p>
+      <div class="app-acts">
+        <button data-app-copy="${esc(a.id)}">copy link</button>
+        <button data-app-open="${esc(a.id)}">open</button>
+      </div>
+    </div>`).join("");
+
+  // Resolve each app's QR and set the img src to the SVG data URI.
+  for (const a of apps) {
+    const qr = await resolveAppQr(a);
+    const img = $("qr-" + a.id);
+    if (img && qr.qr) img.src = qr.qr;
+    const urlEl = $("url-" + a.id);
+    if (urlEl && qr.url) urlEl.textContent = qr.url;
+  }
+}
+
+$("grid").addEventListener("click", async (e) => {
+  if (tab !== "apps") return;
+  const copy = e.target.closest("[data-app-copy]");
+  if (copy) {
+    const cached = appsQrCache.get(copy.dataset.appCopy);
+    if (cached && cached.url) {
+      try { await navigator.clipboard.writeText(cached.url); } catch {}
+    }
+    return;
+  }
+  const open = e.target.closest("[data-app-open]");
+  if (open) {
+    const cached = appsQrCache.get(open.dataset.appOpen);
+    if (cached && cached.url) window.open(cached.url, "_blank");
+    return;
+  }
+});
+
+// ---- venture tab ---------------------------------------------------------------
+// The estate plan — pieces of the roost becoming a corporation. Content lives
+// here rather than in the archive: it is a plan, not evidence, and it should
+// render outside the shell too. Only the pilot checkboxes persist (locally).
+
+const VKEY = "trove.venture.plan.v1";
+function loadVstate() {
+  try { return JSON.parse(localStorage.getItem(VKEY)) || {}; } catch { return {}; }
+}
+let vstate = loadVstate();
+function saveVstate() {
+  try { localStorage.setItem(VKEY, JSON.stringify(vstate)); } catch {}
+}
+
+function renderVenture() {
+  const step = (k, label) => `
+    <div class="vstep${vstate[k] ? " done" : ""}">
+      <input type="checkbox" data-vk="${k}" id="vk-${k}"${vstate[k] ? " checked" : ""} />
+      <label for="vk-${k}">${label}</label>
+    </div>`;
+  $("grid").innerHTML = `
+    <div class="vcard">
+      <h3>Community-owned internet that pays for itself</h3>
+      <div class="vk">the thesis</div>
+      <p>A <b>solar-powered community ISP</b> whose relays are Glamourwell nodes;
+      a browser whose <b>consent lives in the chrome</b>, not in a page's checkbox;
+      members who volunteer <b>measured, ledger-backed data</b> to buyers rather
+      than raw logs; idle GPUs sold through the same consent layer. The revenue
+      funds the wires, the panels and the batteries.</p>
+      <p>Positioned as a <b>competitor to Tlon/Urbit</b> for the personal-server
+      future, and riding the market <b>NVIDIA's scarcity creates</b> — never
+      attacking the monopoly itself.</p>
+      <p class="vs">The loop nobody closed: community networks die of unpaid
+      volunteers. Here the consented measurement layer pays the light bill.</p>
+    </div>
+    <div class="vcard">
+      <h3>What the estate already has</h3>
+      <div class="vk">the stack map</div>
+      <ul>
+        <li><b>Ifreglen shell</b> — the consent engine. effectiveCaps() gates every
+        page; capture tabs are the only recording door; personas cannot
+        contaminate cohorts. Becomes the corporation's trust perimeter.</li>
+        <li><b>Glamourwell</b> — the node: roster of trusted devices,
+        content-addressed hoard, the desk for human judgment, LAN + Tor-onion
+        reach, job lanes (diffusion / Ollama / vision). Becomes the member node
+        <i>and</i> the relay.</li>
+        <li><b>Ment Jelly</b> — the measurement lab: conditioned cohorts, the
+        audit ledger, feed-response proof. Becomes the product buyers pay for.</li>
+        <li><b>The Wilds</b> — the client: URLs freed from the registry, jars and
+        personas, distillates not raw DOM.</li>
+      </ul>
+    </div>
+    <div class="vcard">
+      <h3>Three firewalled bodies</h3>
+      <div class="vk">legal architecture</div>
+      <ul>
+        <li><b>The pipe</b> — an LLC that owns dumb solar relays. Routes bytes,
+        logs almost nothing, has no data business at all (CPNI, 47 USC §222,
+        state privacy statutes — an ISP that also sells subscriber data is a
+        grenade).</li>
+        <li><b>The member node</b> — member-owned, the sole point where data
+        ever leaves, under desk approval.</li>
+        <li><b>The corp</b> — operates the software: browser, marketplace,
+        ledger. Contracts with node owners, never with the pipe.</li>
+      </ul>
+      <p class="vs">The org chart should match the capability model the shell
+      already enforces in code.</p>
+    </div>
+    <div class="vcard">
+      <h3>The physical layer</h3>
+      <div class="vk">radio, honestly</div>
+      <ul>
+        <li><b>The LoRa trap</b> — kilometres of range at hundreds of bits per second is telemetry, not a member's connection.</li>
+        <li><b>The ladder</b> — 5/6 GHz PtMP for member links (tens of km line-of-sight, 100–300 Mbps, no license) → 60 GHz PtP backhaul (gigabit-ish, ~2 km, dies in heavy rain) → CBRS 3.5 GHz for around-the-foliage links, at the cost of SAS paperwork.</li>
+        <li><b>What "not beholden to cell towers" really means</b> — physics doesn't remove towers; line of sight needs elevation. The pivot removes the <i>carrier</i>: the community owns the high points — rooftops, grain elevators, steeples — instead of leasing them.</li>
+      </ul>
+    </div>
+    <div class="vcard">
+      <h3>The second internet</h3>
+      <div class="vk">naming and transport</div>
+      <ul>
+        <li>A well is already reachable by name without DNS or routable IPv4 — <b>the onion address is a domain type</b>, built for other reasons.</li>
+        <li>Next: a <b>.well namespace</b> resolved by the member's own node. Namecoin, Handshake and ENS all died on the same rock: nobody bridged to legacy DNS. The rule: the new internet must bridge to the old one until it doesn't need to.</li>
+        <li><b>Transport</b> — a Yggdrasil-style overlay (self-addressed IPv6 over any medium, unchanged) riding the radio mesh.</li>
+        <li><b>Order</b> — names first, overlay second, root replacement never promised.</li>
+      </ul>
+    </div>
+    <div class="vcard">
+      <h3>The profile as product</h3>
+      <div class="vk">behavioral telemetry, consented</div>
+      <ul>
+        <li>View time, clicks, mouse trails, dwell — an <b>extension of the collector schema</b> behind the existing capture toggle, not a new instrument.</li>
+        <li>The scarce asset is <b>algorithmic weights</b>: a measured personal ranker — what the feed is doing to you — which raw surveillance never has.</li>
+        <li><b>No second shell needed</b> — an opted-in jar is a separate identity with separate stores; the capture-tab-only rule stays intact. Forking the capability model is the one thing this estate must never do.</li>
+        <li>The profile <b>lives on the well, never on the corp's servers</b>. An auction is a desk-approved lease of a distillate; the data exits at the member's machine. A complete profile held by a corporation is a breach away from catastrophe; on the member's own node it is an asset that cannot be subpoenaed en masse.</li>
+      </ul>
+    </div>
+    <div class="vcard">
+      <h3>Against Urbit and Tlon</h3>
+      <div class="vk">positioning</div>
+      <ul>
+        <li>Their scarce <b>ship identities</b> → our machine identity: a well
+        with a hoard, paired by proof. No planets to buy.</li>
+        <li>Their Ames network → our <b>onion + LAN federation</b>. No public
+        IPv4 needed — addresses are scarce; onions make relays reachable anyway.</li>
+        <li>Their Hoon apps → our web: <b>any page runs</b>; the URL is freed,
+        and the browser is the OS.</li>
+        <li>Their Tlon Groups → our agents: Müt, Ollama lanes, real compute on
+        the member's own node.</li>
+      </ul>
+      <p class="vs">Onboarding is minutes with a browser, not an operating
+      system to learn.</p>
+    </div>
+    <div class="vcard">
+      <h3>The NVIDIA angle, honestly</h3>
+      <div class="vk">tailwind, not a head-on attack</div>
+      <ul>
+        <li><b>What the monopoly actually is</b> — CUDA, NVLink/interconnect, and supply contracts where four hyperscalers take entire quarters of Blackwell output. Nothing here touches that, and the community mesh still buys NVIDIA silicon: it rides the monopoly, it doesn't break it.</li>
+        <li><b>What the utilization idea really is</b> — distributed inference on consumer GPUs has real precedents (Petals, BOINC, Render, io.net) and real economics: a consumer card is ~1/50th of a B200's cost and competitive for single-batch inference. But training is physically impossible across internet links, so this serves small-to-mid models, never frontier ones — and its buyers are the people hyperscalers won't serve (privacy, edge latency, sovereignty), not price shoppers.</li>
+        <li><b>The stronger claim is provenance</b> — post-litigation and under the EU AI Act, the cost of not having consent-tracked training data rises every year. The monopoly's gatekeeping pushes the market toward exactly what the ledger makes. A wedge into the AI economy, with NVIDIA as the tailwind, not the target.</li>
+      </ul>
+      <p class="vs">Market it as: the part of the AI economy the monopoly can't serve.</p>
+    </div>
+    <div class="vcard">
+      <h3>Revenue</h3>
+      <div class="vk">three streams, one loop</div>
+      <ul>
+        <li><b>Verified cohort sales</b> — distillates, not raw logs: a
+        measurement premium over data brokerage.</li>
+        <li><b>Community compute</b> — market fees on consented GPU jobs.</li>
+        <li><b>Connectivity</b> — co-op dues at cost.</li>
+      </ul>
+      <p class="vs">Precedents to study: Althea (payments per GB routed, now
+      tokenized infrastructure), guifi.net (scale, but 20 years and subsidies),
+      NYC Mesh (donations only).</p>
+    </div>
+    <div class="vcard">
+      <h3>Reality check</h3>
+      <div class="vk">what survives scrutiny</div>
+      <ul>
+        <li><b>Solar ISP — realistic.</b> Physics and economics proven at scale elsewhere; the hard part is maintenance and backhaul, not ambition. A rooftop co-op, not a Comcast killer.</li>
+        <li><b>Consent architecture — realistic.</b> Already built; the estate's strongest asset.</li>
+        <li><b>Measured cohort sales — real product, unproven buyers.</b> One paid transaction isn't a milestone; it's the entire thesis.</li>
+        <li><b>Cross-node compute — real but crowded.</b> A member service, not a revenue pillar; the edge is consent and locality, never price.</li>
+        <li><b>Urbit competitor — bravado as framed.</b> Urbit is a niche pond; the market is the itch it scratches (own your compute and data) and its failure to reach normal humans, not its user list.</li>
+        <li><b>A new internet — bravado as framed.</b> Every attempt died bridging to the old one. The realistic sliver — member naming plus overlay — is half-built already.</li>
+        <li><b>Most complete digital profile — the most dangerous claim on the list.</b> Sell a verified, consented research panel; never completeness. That phrase is what a subpoena would quote.</li>
+      </ul>
+      <p class="vs">Rule: claim what it does for members, not what it does to an incumbent.</p>
+    </div>
+    <div class="vcard vlist">
+      <h3>Sequence</h3>
+      <div class="vk">prove it in this order</div>
+      ${step("sale", "Close one paid cohort sale through the existing software — buyer, cohort, price, ledger entry.")}
+      ${step("port", "Port probe: Glamourwell gateway on a Linux SBC — list its Windows assumptions.")}
+      ${step("federation", "Federation spike: pair two wells that share no roost. The load-bearing assumption. Cross-node compute needs it before the market exists.")}
+      ${step("telemetry", "Extend the collector schema: view time, clicks, mouse trails, dwell — behind the capture toggle, jar-isolated from day one.")}
+      ${step("relay", "One relay pilot: rooftop, 5–10 member links, ~$3–4k, three months, grid fallback for February.")}
+      ${step("entity", "Entity design: the three firewalled bodies, with telecom and securities counsel.")}
+      <p class="vs">Physical infrastructure is the least reversible layer, so
+      it goes last in proofs and first in entity planning.</p>
+    </div>
+    <div class="vcard">
+      <h3>Honest risks</h3>
+      <div class="vk">what kills this</div>
+      <ul>
+        <li><b>Regulatory</b> — the firewall is the answer; never merge pipe
+        and marketplace. Fractional ownership of towers is a regulated
+        instrument: tokens are a lawyer conversation, not a config flag.</li>
+        <li><b>February</b> — two overcast weeks; oversize panels or a grid
+        trickle, designed in from the first relay.</li>
+        <li><b>IPv4 scarcity</b> — IPv6-first; onions already cover the relays.</li>
+        <li><b>Glamourwell's single-main design</b> — federation is
+        engineering, not configuration.</li>
+        <li><b>Adverse selection</b> — the people eager to sell raw data are
+        the low-value subjects. Sell verified cohorts; the buyers who matter
+        pay for provenance.</li>
+        <li><b>Payment before token</b> — invoices, escrow and plain ledgers
+        first. A currency is a securities instrument (Howey): lawyer before
+        chain. Althea's arc is the lesson — the payments worked, the token
+        brought regulators.</li>
+      </ul>
+    </div>
+    ${vdocsHtml()}`;
+}
+
+$("grid").addEventListener("change", (e) => {
+  if (tab !== "venture") return;
+  const c = e.target.closest("input[data-vk]");
+  if (!c) return;
+  vstate[c.dataset.vk] = c.checked;
+  saveVstate();
+  c.closest(".vstep").classList.toggle("done", c.checked);
+});
+
+// ---- the long documents ---------------------------------------------------------
+// The business plan and the home radio lab are long-form markdown, kept verbatim
+// in <script type="text/markdown"> blocks above and mirrored in Glamourwell's
+// docs/. They render under the cards as full-width documents, folded until
+// asked for (the fold persists locally, like the checkboxes), and compile
+// verbatim after the cards. The renderer covers only what the documents use —
+// headings, paragraphs, lists, tables, fences, rules, quotes, bold, italics and
+// links — and escapes everything before it marks anything up.
+const VDOCS = [
+  { id: "vdoc-plan", key: "doc:plan", title: "The business plan", vk: "draft 2 · the long form" },
+  { id: "vdoc-lab", key: "doc:lab", title: "The home radio lab", vk: "phase 1 · parts and measurements" },
+];
+function vdocSource(d) {
+  const el = $(d.id);
+  return el ? String(el.textContent).replace(/\r\n?/g, "\n").trim() : "";
+}
+function mdInline(s) {
+  return esc(s)
+    .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
+    .replace(/(^|[\s(])\*([^*\n]+)\*/g, "$1<i>$2</i>")
+    .replace(/(^|[\s(])_([^_\n]+)_/g, "$1<i>$2</i>")
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    // A link to the web opens in a new tab; a link to a sibling file is just its text.
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (m, t, h) =>
+      /^https?:\/\//.test(h) ? `<a href="${h}" target="_blank" rel="noreferrer">${t}</a>` : t);
+}
+function mdRender(src) {
+  const lines = String(src).split("\n");
+  const out = [];
+  const para = [];
+  const flush = () => { if (para.length) { out.push(`<p>${mdInline(para.join(" "))}</p>`); para.length = 0; } };
+  const isItem = (l) => /^\s*([-*]|\d+\.)\s+/.test(l);
+  let i = 0;
+  while (i < lines.length) {
+    const l = lines[i];
+    let m;
+    if (/^```/.test(l)) {
+      flush();
+      const buf = [];
+      i++;
+      while (i < lines.length && !/^```/.test(lines[i])) buf.push(lines[i++]);
+      i++;
+      out.push(`<pre>${esc(buf.join("\n"))}</pre>`);
+    } else if ((m = /^(#{1,3})\s+(.*)$/.exec(l))) {
+      flush();
+      out.push(`<h${m[1].length}>${mdInline(m[2])}</h${m[1].length}>`);
+      i++;
+    } else if (/^---+\s*$/.test(l)) {
+      flush();
+      out.push("<hr>");
+      i++;
+    } else if (/^\|/.test(l)) {
+      flush();
+      const rows = [];
+      while (i < lines.length && /^\|/.test(lines[i])) rows.push(lines[i++]);
+      const cells = (r) => r.replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
+      const head = cells(rows[0]);
+      const body = rows.slice(/^\|\s*:?-+/.test(rows[1] || "") ? 2 : 1).map(cells);
+      out.push(`<table><thead><tr>${head.map((c) => `<th>${mdInline(c)}</th>`).join("")}</tr></thead><tbody>${
+        body.map((r) => `<tr>${r.map((c) => `<td>${mdInline(c)}</td>`).join("")}</tr>`).join("")}</tbody></table>`);
+    } else if (isItem(l)) {
+      flush();
+      const ordered = /^\s*\d+\./.test(l);
+      const items = [];
+      while (i < lines.length && isItem(lines[i])) {
+        let item = lines[i++].replace(/^\s*([-*]|\d+\.)\s+/, "");
+        while (i < lines.length && /^\s+\S/.test(lines[i]) && !isItem(lines[i])) item += " " + lines[i++].trim();
+        items.push(`<li>${mdInline(item)}</li>`);
+      }
+      const tag = ordered ? "ol" : "ul";
+      out.push(`<${tag}>${items.join("")}</${tag}>`);
+    } else if (/^>\s?/.test(l)) {
+      flush();
+      out.push(`<blockquote><p>${mdInline(l.replace(/^>\s?/, ""))}</p></blockquote>`);
+      i++;
+    } else if (!l.trim()) {
+      flush();
+      i++;
+    } else {
+      para.push(l.trim());
+      i++;
+    }
+  }
+  flush();
+  return out.join("\n");
+}
+function vdocsHtml() {
+  return VDOCS.map((d) => {
+    const src = vdocSource(d);
+    if (!src) return "";
+    const open = !!vstate[d.key];
+    return `
+    <details class="vdoc" data-vdoc="${d.key}"${open ? " open" : ""}>
+      <summary><h3>${esc(d.title)}</h3><div class="vk">${esc(d.vk)}</div><span class="hint">${open ? "fold" : "unfold"}</span></summary>
+      <div class="md">${mdRender(src)}</div>
+    </details>`;
+  }).join("");
+}
+// toggle does not bubble; listen on the way down.
+$("grid").addEventListener("toggle", (e) => {
+  const d = e.target && e.target.closest && e.target.closest("details.vdoc");
+  if (!d) return;
+  vstate[d.dataset.vdoc] = d.open;
+  saveVstate();
+  const h = d.querySelector(".hint");
+  if (h) h.textContent = d.open ? "fold" : "unfold";
+}, true);
+
+// ---- compiling the plan -------------------------------------------------------
+
+// The Venture tab is a view, not a record. "Compile" turns what the tab shows
+// into a markdown document and files it into the archive the way every clip is
+// filed: a content-addressed object under objects/, one append-only index line
+// in the same shape saveClip writes, and — if a lead is routing — a filed line.
+// Through this page's own fs and bus, because window.roost.clip deliberately
+// does not exist (see apps.config.json's $comment): clipping verbs belong to the
+// shell; the archive's own page writes its lines through the doors it already
+// has — the same posture as its note, forgotten and lead lines. A model handed
+// the compiled file gets the whole plan: thesis, stack, firewalls, ladder,
+// sequence and the honest risks, with the checked steps marked done.
+function vInline(el) {
+  return String(el.innerHTML)
+    .replace(/<b>([\s\S]*?)<\/b>/gi, "**$1**")
+    .replace(/<i>([\s\S]*?)<\/i>/gi, "_$1_")
+    .replace(/<[^>]+>/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function ventureMarkdown() {
+  const out = [
+    "# The venture plan",
+    "",
+    `*Compiled from the Trove's Venture tab on ${new Date().toISOString().slice(0, 10)}.*`,
+  ];
+  for (const card of $("grid").querySelectorAll(".vcard")) {
+    const h = card.querySelector("h3");
+    if (h) out.push("", `## ${vInline(h)}`);
+    const vk = card.querySelector(".vk");
+    if (vk) out.push(`_${vInline(vk)}_`);
+    for (const p of card.querySelectorAll(":scope > p:not(.vs)")) out.push("", vInline(p));
+    const ul = card.querySelector("ul");
+    if (ul) for (const li of ul.querySelectorAll(":scope > li")) out.push(`- ${vInline(li)}`);
+    // The checkboxes are the plan's order of proof; a tick carries over as [x].
+    for (const s of card.querySelectorAll(".vstep")) {
+      const box = s.querySelector("input[data-vk]");
+      const lab = s.querySelector("label");
+      if (box && lab) out.push(`- [${vstate[box.dataset.vk] ? "x" : " "}] ${vInline(lab)}`);
+    }
+    const vs = card.querySelector("p.vs");
+    if (vs) out.push("", `> ${vInline(vs)}`);
+  }
+  // The long documents ride along verbatim, each under its own rule, so the
+  // compiled file is the whole plan and not a summary of it.
+  for (const d of VDOCS) {
+    const src = vdocSource(d);
+    if (src) out.push("", "---", "", src);
+  }
+  return out.join("\n").replace(/\n{3,}/g, "\n\n") + "\n";
+}
+
+async function compileVenture() {
+  if (!hasFs || tab !== "venture") return;
+  if (!(window.crypto && crypto.subtle)) {
+    $("count").textContent = "no crypto — cannot compile";
+    return;
+  }
+  const md = ventureMarkdown();
+  const bytes = new TextEncoder().encode(md);
+  const sha = [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))]
+    .map((b) => b.toString(16).padStart(2, "0")).join("");
+  const object = `objects/${sha.slice(0, 2)}/${sha}.md`;
+  const id = "clip_" + Date.now().toString(36) + "_" + Math.random().toString(16).slice(2, 8);
+  // The index line saveClip would have written, key for key — loadClips folds
+  // it like any file clip, and the same plan compiled twice dedupes to the
+  // same object: two events, two lines, one blob. The index is evidence.
+  const line = {
+    v: 1, id, t: Date.now(), at: new Date().toISOString(), kind: "file",
+    sha256: sha, bytes: bytes.length, mime: "text/markdown", ext: ".md",
+    object, thumb: null,
+    src: { url: null, pageUrl: null, pageTitle: "The venture plan", alt: null, linkUrl: null },
+    app: window.roost.app, persona: null,
+    text: null, note: null, tags: [], agent: "trove", fanout: [],
+  };
+  try {
+    await window.roost.fs.write(object, md);
+  } catch (err) {
+    $("count").textContent = "compile failed — " + String((err && err.message) || err);
+    return;
+  }
+  await window.roost.fs.append("index.jsonl", JSON.stringify(line) + "\n");
+  // A lead that is routing catches the compiled plan too, whatever door it
+  // came through — the filed line is appendLead's to write, same as the
+  // detail pane's, so there is no privileged second channel.
+  if (leadActive) await appendLead({ kind: "filed", lead: leadActive, ref: id });
+  try { await window.roost.bus.publish("clip.added", { id, kind: "file", app: window.roost.app }); } catch {}
+  setTab("clips");
+}
+$("vcompile").addEventListener("click", compileVenture);
+
+// ---- clipboard watcher: reload apps when the bus says apps.json changed -------
+// (the shell main will publish an event when apps are registered)
+
+function fmtBytes(n) {
+  if (!n) return "";
+  return n >= 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.round(n / 1024) + " KB";
+}
+function fmtWhen(t) {
+  const d = new Date(t);
+  const days = (Date.now() - t) / 86400000;
+  if (days < 1) return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  if (days < 7) return d.toLocaleDateString(undefined, { weekday: "short" });
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+async function loadClips() {
+  if (!hasFs) {
+    $("grid").innerHTML = '<p class="empty">The Trove reads its archive through the shell.<br>Open it inside Ifreglen.</p>';
+    return;
+  }
+  let text = "";
+  try {
+    const r = await window.roost.fs.read("index.jsonl");
+    text = r && r.data ? r.data : "";
+  } catch { text = ""; }
+
+  const all = text.split("\n").filter(Boolean).map((l) => {
+    try { return JSON.parse(l); } catch { return null; }
+  }).filter(Boolean);
+
+  // Append-only means later lines amend earlier ones rather than replacing
+  // them: a "forgotten" line retires a clip, a "fanout" line annotates one,
+  // and a "note" line adds what you wrote about it. Later notes win.
+  forgotten = new Set(all.filter((l) => l.kind === "forgotten").map((l) => l.ref));
+  const fanouts = new Map();
+  const notes = new Map();
+  for (const l of all) {
+    if (l.kind === "fanout" && l.ref) {
+      fanouts.set(l.ref, [...(fanouts.get(l.ref) || []), ...(l.fanout || [])]);
+    }
+    if (l.kind === "note" && l.ref) notes.set(l.ref, l);
+  }
+  lines = all
+    .filter((l) => l.kind && !["fanout", "note", "forgotten"].includes(l.kind))
+    .filter((l) => !forgotten.has(l.id))
+    .map((l) => ({
+      ...l,
+      fanout: [...(l.fanout || []), ...(fanouts.get(l.id) || [])],
+      note: notes.get(l.id)?.note ?? l.note ?? null,
+      tags: notes.get(l.id)?.tags ?? l.tags ?? [],
+    }))
+    .sort((a, b) => b.t - a.t);
+
+  fillFilters();
+  renderClips();
+}
+
+function fillFilters() {
+  if (tab !== "clips") return;
+  const counts = (items) => {
+    const m = new Map();
+    for (const it of items) m.set(it, (m.get(it) || 0) + 1);
+    return m;
+  };
+  // A bare list of kinds asks the operator to remember what the grid holds.
+  // The count beside each name answers before the question forms.
+  const kc = counts(lines.map((l) => l.kind));
+  const ac = counts(lines.map((l) => l.app).filter(Boolean));
+  const keep = (sel, m, label) => {
+    const cur = sel.value;
+    const list = [...m.keys()].sort();
+    sel.innerHTML = `<option value="">${label} · ${lines.length}</option>` +
+      list.map((v) => `<option value="${esc(v)}">${esc(v)} · ${m.get(v)}</option>`).join("");
+    if (list.includes(cur)) sel.value = cur;
+  };
+  keep($("fkind"), kc, "all kinds");
+  keep($("fapp"), ac, "all sources");
+  // Leads, same treatment: a name with a count, not a bare list.
+  const ids = new Set(lines.map((l) => l.id));
+  const lc = new Map(leads.map((L) => [L.id, [...L.clips].filter((id) => ids.has(id)).length]));
+  const cur = $("flead").value;
+  $("flead").innerHTML = `<option value="">all leads · ${lines.length}</option>` +
+    [...lc.keys()].sort().map((id) => {
+      const L = leads.find((x) => x.id === id);
+      return `<option value="${esc(id)}">${esc(L.name)} · ${lc.get(id)}</option>`;
+    }).join("");
+  if ([...lc.keys()].includes(cur)) $("flead").value = cur;
+}
+
+function visible() {
+  const q = $("q").value.trim().toLowerCase();
+  const k = $("fkind").value;
+  const a = $("fapp").value;
+  const fl = $("flead").value;
+  const FL = fl ? leads.find((x) => x.id === fl) : null;
+  return lines.filter((l) => {
+    if (k && l.kind !== k) return false;
+    if (a && l.app !== a) return false;
+    if (FL && !FL.clips.has(l.id)) return false;
+    if (!q) return true;
+    const hay = [l.src?.pageTitle, l.src?.url, l.src?.pageUrl, l.text, l.src?.alt, l.note, (l.tags || []).join(" ")]
+      .filter(Boolean).join(" ").toLowerCase();
+    return hay.includes(q);
+  });
+}
+
+// ---- research leads ---------------------------------------------------------
+// Leads live in leads.jsonl, folded with the same rules as the main process's
+// lib/clip.js Leads class — create/retire/file/unfile/lead-active, later lines
+// win. This page writes it through fs.append exactly as it writes note and
+// forgotten lines, so there is no privileged second channel to get out of sync.
+const newLeadId = () => "lead_" + Date.now().toString(36) + "_" + Math.random().toString(16).slice(2, 8);
+
+async function appendLead(line) {
+  const full = {
+    v: 1, id: "lead_evt_" + Date.now().toString(36) + Math.random().toString(16).slice(2, 5),
+    t: Date.now(), at: new Date().toISOString(), agent: "trove", ...line,
+  };
+  try { await window.roost.fs.append("leads.jsonl", JSON.stringify(full) + "\n"); }
+  catch { return null; }
+  await loadLeads();
+  return full;
+}
+
+async function loadLeads() {
+  if (!hasFs) { leads = []; leadActive = null; return; }
+  let text = "";
+  try {
+    const r = await window.roost.fs.read("leads.jsonl");
+    text = r && r.data ? r.data : "";
+  } catch { text = ""; }
+  const m = new Map();
+  let act = null;
+  for (const l of text.split("\n").filter(Boolean)) {
+    let o; try { o = JSON.parse(l); } catch { continue; }
+    if (o.kind === "lead") {
+      if (!m.get(o.id)) m.set(o.id, { id: o.id, name: o.name || o.id, t: o.t, clips: new Set() });
+      else m.get(o.id).name = o.name || m.get(o.id).name; // rename
+    } else if (o.kind === "lead-retired") m.delete(o.ref);
+    else if (o.kind === "filed") m.get(o.lead)?.clips.add(o.ref);
+    else if (o.kind === "unfiled") m.get(o.lead)?.clips.delete(o.ref);
+    else if (o.kind === "lead-active") act = o.ref || null;
+  }
+  if (act && !m.has(act)) act = null;
+  leads = [...m.values()];
+  leadActive = act;
+  fillFilters();
+  if (tab === "leads") renderLeads();
+}
+
+function renderLeads() {
+  if (tab !== "leads") return;
+  const ids = new Set(lines.map((l) => l.id));
+  const n = (s) => [...s].filter((id) => ids.has(id)).length;
+  $("count").textContent = leads.length ? `${leads.length} lead${leads.length === 1 ? "" : "s"}` : "";
+  $("grid").innerHTML =
+    `<div class="leadcard new">
+      <h3>start a research lead</h3>
+      <p class="ld">A lead is a container that gathers clips — pages, links, images, chats — into one trail.
+      Route the Wilds into one and everything you clip lands in it, whatever door it came through.</p>
+      <div class="lnew">
+        <input id="leadname" placeholder="what are you chasing?" spellcheck="false" />
+        <button id="leadgo">start</button>
+      </div>
+    </div>` +
+    leads.map((L) => `
+    <div class="leadcard ${leadActive === L.id ? "on" : ""}">
+      <h3>${esc(L.name)}</h3>
+      <p class="ld">${n(L.clips)} clip${n(L.clips) === 1 ? "" : "s"} gathered${leadActive === L.id ? " · <b>the Wilds is filing into this</b>" : ""}</p>
+      <div class="lacts">
+        <button data-lopen="${esc(L.id)}">open trail</button>
+        <button data-ltoggle="${esc(L.id)}">${leadActive === L.id ? "stop routing" : "route clips here"}</button>
+        <button class="warn" data-lretire="${esc(L.id)}">retire</button>
+      </div>
+    </div>`).join("") +
+    (leads.length ? "" : `<p class="empty">No leads yet. Name one above and the browser can route clips into it.</p>`);
+}
+
+async function makeLead(name) {
+  name = name.trim().slice(0, 120);
+  if (!name) return;
+  if (leads.some((L) => L.name.toLowerCase() === name.toLowerCase())) return;
+  const id = newLeadId();
+  // Creating is deciding to gather: routing comes on with the lead, not after it.
+  await appendLead({ kind: "lead", id, name });
+  await appendLead({ kind: "lead-active", ref: id });
+}
+
+// Thumbs are read as base64 through the fs capability. They are generated at
+// clip time at 320px precisely so they stay far under ScopedFs's 8MB read cap
+// — the full-size object is never pulled into the renderer.
+async function thumbFor(l) {
+  if (!l.thumb) return null;
+  if (thumbCache.has(l.thumb)) return thumbCache.get(l.thumb);
+  try {
+    const r = await window.roost.fs.read(l.thumb, "base64");
+    const url = r && r.data ? "data:image/png;base64," + r.data : null;
+    thumbCache.set(l.thumb, url);
+    return url;
+  } catch {
+    thumbCache.set(l.thumb, null);
+    return null;
+  }
+}
+
+// ---- card faces ---------------------------------------------------------------
+// Every card shows a face made of what the clip actually holds — a thumbnail,
+// a site, words, a file type — never a bare kind word on a stripe. The tint
+// comes from a hash of the hostname (or the object, for files): same site,
+// same colour, and nothing is fetched to get it; favicons would broadcast
+// the archive's URLs back onto the network, and the hostname is already in
+// the index.
+function hostOf(l) {
+  try {
+    const u = new URL(l.src?.url || l.src?.pageUrl || l.src?.linkUrl || "");
+    // swarm:// and friends have no hostname — the scheme stands in.
+    return (u.hostname || u.protocol.replace(/:$/, "")).replace(/^www\./, "") || null;
+  } catch { return null; }
+}
+function hueOf(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360;
+  return h;
+}
+function footHTML(l) {
+  // The host badge already says where it came from; the app id in the footer
+  // was noise (roam:t157) — provenance lives in the detail pane.
+  return `<span class="cm">
+    <span class="kchip">${esc(l.kind)}</span>
+    <span class="a">${esc(fmtWhen(l.t))}</span>
+  </span>`;
+}
+function cardHTML(l) {
+  const noteMark = l.note ? '<span class="hasnote" title="has a note">✎</span> ' : "";
+  if (l.thumb) return `
+    <img class="shot" data-thumb="${esc(l.thumb)}" alt="">
+    <div class="body">
+      <div class="ct">${noteMark}${esc(l.src?.pageTitle || l.text || l.src?.url || "(untitled)")}</div>
+      ${footHTML(l)}
+    </div>`;
+  if (l.text) return `
+    <div class="body">
+      <div class="siterow">
+        <span class="badge" style="--hue:${hueOf(hostOf(l) || l.kind)}">❝</span>
+        ${hostOf(l) ? `<span class="host">${esc(hostOf(l))}</span>` : ""}
+      </div>
+      <div class="quote">${esc(l.text.slice(0, 420))}</div>
+      ${footHTML(l)}
+    </div>`;
+  const host = hostOf(l);
+  if (host) {
+    const initial = ((l.src?.pageTitle || host).trim()[0] || "?").toUpperCase();
+    // A clip with no page title shows its address — which reads as a headline
+    // but is really a pointer. Set it in mono, dimmer, so real titles win.
+    const urlTitle = !l.src?.pageTitle;
+    return `
+    <div class="body">
+      <div class="siterow">
+        <span class="badge" style="--hue:${hueOf(host)}">${esc(initial)}</span>
+        <span class="host">${esc(host)}</span>
+      </div>
+      <div class="ct${urlTitle ? " url" : ""}">${noteMark}${esc(l.src?.pageTitle || l.src?.url || "(untitled)")}</div>
+      ${footHTML(l)}
+    </div>
+    <span class="mark" style="--hue:${hueOf(host)}">${esc(initial)}</span>`;
+  }
+  // A file with no thumbnail (yet): the badge carries the type instead.
+  const ext = ((l.ext || "").replace(/^\./, "")
+    || (l.mime || "?").split("/").pop()).toUpperCase().slice(0, 4);
+  return `
+    <div class="body">
+      <div class="siterow">
+        <span class="badge ext" style="--hue:${hueOf(l.object || l.kind)}">${esc(ext)}</span>
+      </div>
+      <div class="ct">${noteMark}${esc(l.src?.pageTitle || l.src?.url || l.kind)}</div>
+      ${footHTML(l)}
+    </div>`;
+}
+
+function renderClips() {
+  if (tab !== "clips") return;
+  const list = visible();
+  $("count").textContent = list.length
+    ? `${list.length} of ${lines.length}`
+    : lines.length ? `nothing matches · ${lines.length} kept` : "";
+
+  if (!list.length) {
+    $("grid").innerHTML = lines.length
+      ? '<p class="empty">Nothing matches that.</p>'
+      : `<p class="empty">Nothing clipped yet.<br>
+         Right-click an image or link in any app, or press Ctrl+D anywhere.</p>`;
+    return;
+  }
+
+  $("grid").innerHTML = list.map((l) => `
+    <div class="card ${selected === l.id ? "sel" : ""}" data-id="${esc(l.id)}" role="button" tabindex="0">
+      ${cardHTML(l)}
+    </div>`).join("");
+
+  // Fill thumbs after the grid exists, so layout never waits on IPC.
+  for (const img of document.querySelectorAll("img[data-thumb]")) {
+    const l = list.find((x) => x.thumb === img.dataset.thumb);
+    if (l) thumbFor(l).then((u) => { if (u) img.src = u; });
+  }
+}
+
+function openDetail(id) {
+  const l = lines.find((x) => x.id === id);
+  if (!l) return;
+  selected = id;
+  $("detail").classList.add("open");
+
+  const fan = (l.fanout || []).map((f) =>
+    `  ${f.to}: ${f.ok ? "ok" : "FAILED — " + (f.error || "")}`).join("\n");
+
+  // The evidence line, verbatim — but behind a toggle, so the default view
+  // is what a person wants and the raw stays one click for the tool this
+  // page also is.
+  const prov =
+`id       ${l.id}
+kind     ${l.kind}
+when     ${new Date(l.t).toISOString()}
+agent    ${l.agent}
+app      ${l.app || "—"}   persona ${l.persona || "—"}
+sha256   ${l.sha256 || "— (a url is not bytes)"}
+bytes    ${l.bytes || "—"}   ${l.mime || ""}
+object   ${l.object || "—"}
+source   ${l.src?.url || "—"}
+page     ${l.src?.pageUrl || "—"}${l.src?.alt ? "\nalt      " + l.src.alt : ""}${l.text ? "\ntext     " + l.text.slice(0, 400) : ""}${fan ? "\nfanout\n" + fan : ""}`;
+
+  $("dinner").innerHTML = `
+    <h2>${esc(l.src?.pageTitle || l.text?.slice(0, 120) || l.kind)}</h2>
+    <div class="durl">${esc(l.src?.url || l.src?.pageUrl || "")}</div>
+    ${l.thumb ? `<img class="full" id="dimg" alt="">` : ""}
+    ${l.text ? `<div class="dtext">${esc(l.text)}</div>` : ""}
+    <div class="dmeta">
+      <span class="k">kept</span><span class="v">${esc(new Date(l.t).toLocaleString())}</span>
+      <span class="k">gesture</span><span class="v">${esc(l.agent)}</span>
+      <span class="k">app</span><span class="v">${esc(l.app || "—")}${l.persona ? " · " + esc(l.persona) : ""}</span>
+      <span class="k">leads</span><span class="v">${(() => {
+        const inLeads = leads.filter((L) => L.clips.has(l.id));
+        return inLeads.length
+          ? inLeads.map((L) => `<span class="lchip">${esc(L.name)}<button data-unfile="${esc(L.id)}" title="take this clip out">×</button></span>`).join("")
+          : "—";
+      })()}</span>
+    </div>
+    <div class="ann">
+      <label for="dnote">your note</label>
+      <textarea id="dnote" rows="3" placeholder="why you kept this…">${esc(l.note || "")}</textarea>
+      <input id="dtags" placeholder="tags, comma-separated" value="${esc((l.tags || []).join(", "))}">
+      <button data-annot="${esc(l.id)}">save note</button>
+      <div class="dfile">
+        ${(() => {
+          const others = leads.filter((L) => !L.clips.has(l.id));
+          return others.length
+            ? `<select id="dsel-lead">${others.map((L) => `<option value="${esc(L.id)}">${esc(L.name)}</option>`).join("")}</select>
+               <button data-file="${esc(l.id)}">file into lead</button>`
+            : `<span class="none">${leads.length ? "already in every lead" : "no leads yet — start one in the Leads tab"}</span>`;
+        })()}
+      </div>
+    </div>
+    <details class="evidence"><summary>the evidence line</summary>
+      <div class="prov">${esc(prov)}</div>
+    </details>
+    <div class="acts">
+      ${l.src?.pageUrl ? `<button data-open="${esc(l.src.pageUrl)}">open source</button>` : ""}
+      ${l.object ? `<button data-reveal="${esc(l.object)}">reveal file</button>` : ""}
+      ${l.object && hasFs ? `<button data-download="${esc(l.object)}">download</button>` : ""}
+      <button data-copy="${esc(l.sha256 || l.src?.url || l.id)}">copy ${l.sha256 ? "ref" : (l.src?.url ? "url" : "ref")}</button>
+      <button class="warn" data-forget="${esc(l.id)}">forget</button>
+    </div>
+    <p class="note">Forgetting removes the file and appends a line saying so.
+       The index is append-only — it is evidence, not a draft. So is the note:
+       it lands as a new line beside the clip, never over it.</p>`;
+
+  if (l.thumb) thumbFor(l).then((u) => { const i = $("dimg"); if (i && u) i.src = u; });
+  renderClips();
+}
+
+$("grid").addEventListener("click", (e) => {
+  const c = e.target.closest(".card");
+  if (c) { openDetail(c.dataset.id); return; }
+  if (e.target.closest("#leadgo")) { makeLead($("leadname").value); return; }
+  const lopen = e.target.closest("[data-lopen]");
+  if (lopen) { $("flead").value = lopen.dataset.lopen; setTab("clips"); return; }
+  const lt = e.target.closest("[data-ltoggle]");
+  if (lt) { appendLead({ kind: "lead-active", ref: leadActive === lt.dataset.ltoggle ? null : lt.dataset.ltoggle }); return; }
+  const lr = e.target.closest("[data-lretire]");
+  if (lr) { appendLead({ kind: "lead-retired", ref: lr.dataset.lretire }); return; }
+});
+$("grid").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && e.target.id === "leadname") { makeLead(e.target.value); return; }
+  if (e.key !== "Enter" && e.key !== " ") return;
+  const c = e.target.closest(".card");
+  if (c) { e.preventDefault(); openDetail(c.dataset.id); }
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  if ($("detail").classList.contains("open")) {
+    $("detail").classList.remove("open");
+    selected = null;
+    renderClips();
+  }
+});
+
+$("dinner").addEventListener("click", async (e) => {
+  // A note is not a change to the clip — the index is append-only, so saving
+  // one files a fresh "note" line beside it, the same shape as "forgotten"
+  // and "fanout" amendments, and loadClips folds it in.
+  const annot = e.target.closest("[data-annot]");
+  if (annot) {
+    const l = lines.find((x) => x.id === annot.dataset.annot);
+    if (!l || !window.roost?.fs) return;
+    const note = $("dnote").value.trim();
+    const tags = $("dtags").value.split(",").map((t) => t.trim()).filter(Boolean);
+    try {
+      await window.roost.fs.append("index.jsonl", JSON.stringify({
+        v: 1, id: "clip_note_" + Date.now().toString(36), t: Date.now(),
+        at: new Date().toISOString(), kind: "note", ref: l.id,
+        note: note || null, tags, agent: "trove",
+      }) + "\n");
+    } catch { return; }
+    await loadClips();
+    openDetail(l.id);
+    return;
+  }
+  const reveal = e.target.closest("[data-reveal]");
+  if (reveal) {
+    // "Reveal file" — the compiled plan's door back out of the archive: the
+    // file itself, behind the same toggle as the evidence line. Text shows;
+    // anything else says so rather than dumping mojibake — the path to the
+    // bytes is in the evidence line above.
+    const l = lines.find((x) => x.id === selected);
+    const textish = !!l && (
+      /^text\//.test(l.mime || "") ||
+      /\.(md|txt|json|html?|js|mjs|css|py|csv|log)$/i.test(l.ext || "")
+    );
+    let body = "";
+    if (textish) {
+      try {
+        const r = await window.roost.fs.read(reveal.dataset.reveal);
+        body = r && r.data != null ? String(r.data) : "";
+      } catch {}
+    }
+    if (body.length > 200000) body = body.slice(0, 200000) + "\n… truncated for display — the object holds the rest.";
+    if (!$("dreveal")) {
+      $("dinner").querySelector(".acts")?.insertAdjacentHTML("beforebegin",
+        `<details class="evidence" id="dreveal"><summary>the file itself</summary>` +
+        `<div class="prov">${esc(body || "not shown — binary; the object path is in the evidence line")}</div></details>`);
+    }
+    return;
+  }
+  const download = e.target.closest("[data-download]");
+  if (download) {
+    // "Download" — the compiled plan out of the archive and onto the disk,
+    // through the same fs door it came in through. Nothing is written: the
+    // index is append-only, this reads the bytes back and hands them to the
+    // OS save dialog, the same gesture any page's own download link makes.
+    // Text rides utf8; anything else rides base64 so the bytes land unmangled.
+    const l = lines.find((x) => x.id === selected);
+    if (!l || !l.object || !window.roost?.fs) return;
+    const textish = /^text\//.test(l.mime || "") ||
+      /\.(md|txt|json|html?|js|mjs|css|py|csv|log)$/i.test(l.ext || "");
+    let r;
+    try { r = await window.roost.fs.read(download.dataset.download, textish ? "utf8" : "base64"); }
+    catch { r = { error: "unreadable" }; }
+    if (!r || r.error != null || r.data == null) {
+      $("count").textContent = "download failed — object unreadable";
+      return;
+    }
+    const bytes = textish ? r.data : Uint8Array.from(atob(String(r.data)), (c) => c.charCodeAt(0));
+    const stem = String(l.src?.pageTitle || l.text?.slice(0, 60) || l.object.split("/").pop() || l.id)
+      .replace(/[\\/:*?"<>|]+/g, " ").trim().replace(/[.\s]+$/, "").slice(0, 80);
+    const name = (stem || l.id) + (l.ext || "");
+    const url = URL.createObjectURL(new Blob([bytes], { type: l.mime || "application/octet-stream" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    a.click();
+    URL.revokeObjectURL(url);
+    return;
+  }
+  const open = e.target.closest("[data-open]");
+  if (open) {
+    // Hosted pages can't call shell.openExternal directly; the shell's own
+    // window-open handler does it for us, gated on the 'shell' capability.
+    window.open(open.dataset.open, "_blank");
+    return;
+  }
+  const copy = e.target.closest("[data-copy]");
+  if (copy) { navigator.clipboard.writeText(copy.dataset.copy); return; }
+
+  const forget = e.target.closest("[data-forget]");
+  if (forget) {
+    const l = lines.find((x) => x.id === forget.dataset.forget);
+    if (!l) return;
+    if (l.object) { try { await window.roost.fs.remove(l.object); } catch {} }
+    if (l.thumb) { try { await window.roost.fs.remove(l.thumb); } catch {} }
+    await window.roost.fs.append("index.jsonl", JSON.stringify({
+      v: 1, id: "clip_forget_" + Date.now().toString(36), t: Date.now(),
+      at: new Date().toISOString(), kind: "forgotten", ref: l.id, agent: "trove",
+    }) + "\n");
+    selected = null;
+    $("detail").classList.remove("open");
+    loadClips();
+  }
+
+  // Filing is not an edit to the clip either — it is a "filed" line in
+  // leads.jsonl, folded the same way the index folds its amendments.
+  const fileIn = e.target.closest("[data-file]");
+  if (fileIn) {
+    const lid = $("dsel-lead") && $("dsel-lead").value;
+    if (lid) await appendLead({ kind: "filed", lead: lid, ref: fileIn.dataset.file });
+    if (selected) openDetail(selected);
+    return;
+  }
+  const unfile = e.target.closest("[data-unfile]");
+  if (unfile && selected) {
+    await appendLead({ kind: "unfiled", lead: unfile.dataset.unfile, ref: selected });
+    openDetail(selected);
+  }
+});
+
+for (const el of ["q", "fkind", "fapp", "flead"]) $(el).addEventListener("input", renderClips);
+$("refresh").onclick = () => {
+  if (tab === "apps") { appsQrCache.clear(); renderApps(); }
+  else { loadClips(); loadLeads(); }
+};
+
+// The bus is why this page has no poll at all: the shell publishes clip.added
+// the instant something lands, so the grid is live without asking. A new clip
+// may also have been auto-filed into the active lead — so leads reload too,
+// and the counts move the moment the clip does.
+if (window.roost && window.roost.bus) {
+  window.roost.bus.subscribe("clip.added", () => { loadClips(); loadLeads(); });
+}
+
+loadClips();
+loadLeads();
+</script>
+</body>
+</html>

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>New tab</title>
+<link rel="stylesheet" href="../tokens.css">
+<style>
+  /* A blank page in The Wilds.
+     Deliberately inert: no script, no preload surface used, nothing fetched.
+     It is loaded into an ordinary tab view, which is built from a config of
+     kind "external" — so it has exactly the privileges a web page has, which
+     is none. Everything you would put on a start page (pins, history, search)
+     lives in the bar's dropdown instead, which opens by itself when a blank
+     tab is fronted. One surface for going somewhere, not two. */
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background:
+      radial-gradient(900px 520px at 50% -8%, #0D1220 0%, rgba(13,18,32,0) 68%),
+      var(--bg);
+    color: var(--text); font-family: var(--sans);
+    display: flex; align-items: center; justify-content: center;
+    user-select: none; overflow: hidden;
+  }
+  .mid { text-align: center; transform: translateY(-6vh); }
+  .sigil { opacity: .8; }
+  .word {
+    margin-top: 20px; font-family: var(--serif); font-size: 13px;
+    letter-spacing: .42em; text-transform: uppercase; color: var(--dim);
+    padding-left: .42em;
+  }
+  .sub { margin-top: 11px; font-size: 12.5px; color: var(--faint); }
+  .keys {
+    margin-top: 34px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;
+    max-width: 560px;
+  }
+  .k {
+    display: flex; align-items: center; gap: 7px;
+    background: var(--panel); border: 1px solid var(--rule); border-radius: 7px;
+    padding: 7px 11px; font-size: 11.5px; color: var(--faint);
+  }
+  .k b {
+    font-family: var(--mono); font-size: 10.5px; color: var(--occult);
+    font-weight: 500; letter-spacing: .03em;
+  }
+</style>
+</head>
+<body>
+  <div class="mid">
+    <svg class="sigil" width="46" height="46" viewBox="0 0 46 46" fill="none" aria-hidden="true">
+      <circle cx="23" cy="23" r="20.5" stroke="#232A3D" stroke-width="1.4"/>
+      <circle cx="23" cy="23" r="13" stroke="#9B84C9" stroke-width="1.1" opacity=".7"/>
+      <path d="M23 3.2v39.6M3.2 23h39.6" stroke="#232A3D" stroke-width="1.1"/>
+      <circle cx="23" cy="23" r="3.1" fill="#9B84C9" opacity=".85"/>
+    </svg>
+    <div class="word">The Wilds</div>
+    <div class="sub">The open web, inside Ifreglen.</div>
+    <div class="keys">
+      <span class="k"><b>Ctrl+L</b> the address bar</span>
+      <span class="k"><b>Ctrl+T</b> another page</span>
+      <span class="k"><b>Ctrl+W</b> close this one</span>
+      <span class="k"><b>right-click</b> clip anything to the Trove</span>
+    </div>
+  </div>
+</body>
+</html>

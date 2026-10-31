@@ -1,0 +1,17 @@
+{
+  "$comment": [
+    "Copy this to roots.json. It says where THIS machine keeps its project",
+    "folders, so the committed registry can use ${ROOST}/Forge instead of a",
+    "path that is only true on one laptop. Ifreglen's own apps live under",
+    "${SHELL}/apps, which is this desktop folder and needs no entry.",
+    "",
+    "Not a secret — tokens go in secrets.json, which is a different file for a",
+    "reason (see lib/roots.js). ROOST, SHELL and HOME always exist; on",
+    "Windows ROOST defaults to C: and on anything else to ~/projects, so a",
+    "machine that keeps its projects where the defaults say needs no file here",
+    "at all.",
+    "",
+    "Forward slashes are fine on Windows: path.resolve normalises them."
+  ],
+  "ROOST": "C:"
+}

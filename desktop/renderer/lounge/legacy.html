@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>The Sanctum</title>
+<link rel="stylesheet" href="../tokens.css">
+<style>
+  /* Deliberately NOT the instrument language of the toolbar. The 46px chrome
+     above is brass trim on the cabinet; this is the room you land in — a
+     candlelit sanctum over deep water. Void-indigo ground, bone text, candle
+     amber, phosphor for things alive, a bruised violet for the mysteries.
+     It stays dark because a white page under a near-black toolbar strobes on
+     every app switch, and you switch a lot. */
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: var(--sans); font-size: 14px; line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    overflow-y: auto; overflow-x: hidden;
+  }
+
+  /* Lamplight. Two very slow drifting radials — the only motion on the page,
+     and it stops entirely under prefers-reduced-motion. */
+  .lamp {
+    position: fixed; inset: -20%; z-index: 0; pointer-events: none;
+    background:
+      radial-gradient(38% 42% at 22% 18%, rgba(217,161,91,0.10), transparent 70%),
+      radial-gradient(34% 38% at 82% 76%, rgba(127,214,168,0.06), transparent 72%),
+      radial-gradient(46% 40% at 55% 105%, rgba(155,132,201,0.07), transparent 75%);
+    animation: drift 48s ease-in-out infinite alternate;
+  }
+  @keyframes drift {
+    from { transform: translate3d(-1.5%, -1%, 0) scale(1); }
+    to   { transform: translate3d(2%, 1.5%, 0) scale(1.06); }
+  }
+  @media (prefers-reduced-motion: reduce) { .lamp { animation: none; } }
+
+  /* The veil: a breath of grain and a vignette, so the flat void reads as a
+     room with air in it. Pure CSS-and-data-URI — costs nothing. */
+  .veil {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background:
+      radial-gradient(120% 90% at 50% 8%, transparent 55%, rgba(4,5,9,0.55) 100%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+  }
+
+  .wrap {
+    position: relative; z-index: 1;
+    max-width: 1000px; margin: 0 auto; padding: 54px 32px 64px;
+  }
+
+  /* ---------------------------------------------------------------- header */
+  header { margin-bottom: 44px; }
+  .overline {
+    font-family: var(--mono); font-size: 9px; font-weight: 500;
+    letter-spacing: 0.34em; text-transform: uppercase; color: var(--faint);
+    margin: 0 0 14px; display: flex; align-items: center; gap: 12px;
+  }
+  .overline::after {
+    content: ""; flex: 1; height: 1px;
+    background: linear-gradient(90deg, var(--rule), transparent);
+  }
+  .greet {
+    font-family: var(--serif); font-size: clamp(32px, 4.8vw, 48px);
+    font-weight: 400; line-height: 1.16; letter-spacing: -0.014em;
+    margin: 0 0 10px; color: var(--text);
+  }
+  .greet em {
+    font-style: italic; color: var(--lamp);
+    text-shadow: 0 0 26px rgba(217,161,91,0.32);
+  }
+  .stamp {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.07em;
+    color: var(--dim); display: flex; align-items: center; gap: 10px;
+    flex-wrap: wrap;
+  }
+  .stamp .dot { width: 3px; height: 3px; border-radius: 50%; background: var(--faint); }
+
+  /* ----------------------------------------------------------------- cards */
+  .cols {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start;
+  }
+  @media (max-width: 760px) { .cols { grid-template-columns: 1fr; } }
+
+  .card {
+    background: linear-gradient(165deg, var(--panel-2), var(--panel) 58%);
+    border: 1px solid var(--rule);
+    border-radius: 14px; padding: 22px 24px 24px;
+    position: relative; overflow: hidden;
+  }
+  /* A one-pixel light catch along every card's top edge — the difference
+     between a rectangle and a surface. */
+  .card::before {
+    content: ""; position: absolute; left: 0; right: 0; top: 0; height: 1px;
+    background: linear-gradient(90deg, transparent 4%, rgba(217,213,199,0.10) 30%, transparent 92%);
+  }
+  .card h2 {
+    font-family: var(--mono); font-size: 10px; font-weight: 500;
+    letter-spacing: 0.16em; text-transform: uppercase; color: var(--dim);
+    margin: 0 0 16px; display: flex; align-items: center; gap: 8px;
+  }
+  .card h2 .n {
+    font-variant-numeric: tabular-nums; color: var(--faint);
+    margin-left: auto; letter-spacing: 0.06em; text-transform: none;
+  }
+
+  /* ------------------------------------------------------------ intentions */
+  .add {
+    display: flex; align-items: center; gap: 9px;
+    padding: 9px 12px; margin-bottom: 6px;
+    background: var(--panel-2); border: 1px solid transparent;
+    border-radius: 7px; transition: border-color 0.15s;
+  }
+  .add:focus-within { border-color: var(--rule); }
+  .add span { color: var(--faint); font-size: 15px; line-height: 1; }
+  .add input {
+    flex: 1; background: none; border: 0; outline: 0; padding: 0;
+    color: var(--text); font-family: var(--sans); font-size: 14px;
+  }
+  .add input::placeholder { color: var(--faint); }
+
+  ul { list-style: none; margin: 0; padding: 0; }
+  li {
+    display: flex; align-items: flex-start; gap: 11px;
+    padding: 9px 12px; border-radius: 7px;
+    transition: background 0.12s;
+  }
+  li:hover { background: var(--panel-2); }
+  .box {
+    flex: none; width: 15px; height: 15px; margin-top: 3px;
+    border: 1.5px solid var(--faint); border-radius: 4px;
+    cursor: pointer; position: relative; transition: border-color 0.15s;
+  }
+  .box:hover { border-color: var(--moss); }
+  li.done .box { border-color: var(--moss); background: var(--moss); }
+  li.done .box::after {
+    content: ""; position: absolute; left: 4px; top: 0.5px;
+    width: 4px; height: 8px; border: solid var(--panel);
+    border-width: 0 2px 2px 0; transform: rotate(43deg);
+  }
+  .what { flex: 1; word-break: break-word; cursor: default; }
+  li.done .what { color: var(--faint); text-decoration: line-through; text-decoration-color: var(--rule); }
+  .kill {
+    flex: none; background: none; border: 0; cursor: pointer; padding: 0 2px;
+    color: var(--faint); font-family: var(--mono); font-size: 13px; line-height: 1.2;
+    opacity: 0; transition: opacity 0.12s, color 0.12s;
+  }
+  li:hover .kill { opacity: 1; }
+  .kill:hover { color: var(--lamp); }
+
+  .empty { color: var(--faint); font-style: italic; padding: 10px 12px; }
+  .sweep {
+    margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--rule);
+    display: flex; justify-content: flex-end;
+  }
+  .sweep button {
+    background: none; border: 0; cursor: pointer; padding: 3px 2px;
+    color: var(--faint); font-family: var(--mono); font-size: 10px;
+    letter-spacing: 0.09em; text-transform: uppercase;
+    transition: color 0.15s;
+  }
+  .sweep button:hover { color: var(--lamp); }
+  .sweep[hidden] { display: none; }
+
+  /* --------------------------------------------------------------- scratch */
+  textarea {
+    width: 100%; min-height: 260px; resize: vertical;
+    background: var(--panel-2); color: var(--text);
+    border: 1px solid transparent; border-radius: 7px;
+    padding: 13px 14px; outline: 0;
+    font-family: var(--serif); font-size: 15px; line-height: 1.7;
+    transition: border-color 0.15s;
+  }
+  textarea:focus { border-color: var(--rule); }
+  textarea::placeholder { color: var(--faint); font-style: italic; }
+
+  /* ------------------------------------------------------------ experiment */
+  .exp { margin-bottom: 20px; }
+  .exp[hidden] { display: none; }
+  .exp .refresh {
+    background: none; border: 0; cursor: pointer; padding: 0;
+    color: var(--faint); font-family: var(--mono); font-size: 10px;
+    letter-spacing: 0.09em; text-transform: uppercase; transition: color 0.15s;
+  }
+  .exp .refresh:hover { color: var(--lamp); }
+  .exp .note { color: var(--dim); font-size: 13px; margin: 0 0 4px; }
+  .exp .warn { color: var(--lamp); }
+  .exp .grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 6px;
+  }
+  @media (max-width: 760px) { .exp .grid { grid-template-columns: 1fr; } }
+  .cohort {
+    background: var(--panel-2); border-radius: 7px; padding: 12px 14px;
+  }
+  .cohort h3 {
+    margin: 0 0 8px; font-family: var(--mono); font-size: 11px;
+    font-weight: 500; letter-spacing: 0.08em; color: var(--text);
+  }
+  .cohort h3 .n { color: var(--faint); float: right; font-variant-numeric: tabular-nums; }
+  .persona-row {
+    display: flex; gap: 10px; align-items: baseline;
+    font-size: 13px; padding: 2px 0; color: var(--dim);
+  }
+  .persona-row .label { color: var(--text); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .persona-row .count { font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .persona-row .thin { color: var(--faint); font-size: 11px; font-style: italic; }
+  .powerline {
+    margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--rule);
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.04em;
+    color: var(--dim); line-height: 1.8;
+  }
+  .powerline b { color: var(--moss); font-weight: 500; }
+  .powerline .push { color: var(--lamp); }
+
+  /* ------------------------------------------------------------ app tiles */
+  .apps { margin-bottom: 22px; }
+  .apps h2 {
+    font-family: var(--mono); font-size: 10px; font-weight: 500;
+    letter-spacing: 0.16em; text-transform: uppercase; color: var(--dim);
+    margin: 0 0 12px; display: flex; align-items: center; gap: 8px;
+  }
+  .apps h2 .n {
+    font-variant-numeric: tabular-nums; color: var(--faint);
+    margin-left: auto; letter-spacing: 0.06em; text-transform: none;
+  }
+  .tiles {
+    display: grid; gap: 30px 14px;
+    grid-template-columns: repeat(auto-fill, minmax(min(186px, 100%), 1fr));
+    align-items: end;
+  }
+  /* No plates, no pills — every app is its own die-cut mark, floating in the
+     room. The art (or the drawn sigil) IS the button; the name is a caption.
+     Each tile carries its app's accent as --acc for the hover glow. */
+  .tile {
+    display: flex; flex-direction: column; align-items: center; gap: 11px;
+    text-align: center;
+    background: none; border: 0; border-radius: 14px;
+    padding: 10px 8px 12px; cursor: pointer;
+    color: var(--text); font-family: var(--sans); font-size: 14px;
+    position: relative;
+    transition: transform 0.16s;
+  }
+  .tile:hover { transform: translateY(-3px); }
+  .tile:active { transform: translateY(-1px); }
+
+  /* The mark itself. Art hangs free with a cast shadow; hover breathes light
+     into it in the app's own accent. */
+  .tvis {
+    flex: none; height: 138px; max-width: 100%;
+    display: flex; align-items: flex-end; justify-content: center;
+    position: relative;
+  }
+  .tvis img {
+    height: 100%; width: auto; max-width: 170px; object-fit: contain;
+    display: block;
+    filter: drop-shadow(0 12px 20px rgba(2, 3, 7, 0.55));
+    transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.35s;
+  }
+  .tile:hover .tvis img {
+    transform: scale(1.06) rotate(-1.2deg);
+    filter: drop-shadow(0 16px 26px rgba(2, 3, 7, 0.6))
+            drop-shadow(0 0 26px color-mix(in srgb, var(--acc, var(--lamp)) 38%, transparent))
+            saturate(1.08);
+  }
+  .tile.active .tvis img {
+    filter: drop-shadow(0 12px 20px rgba(2, 3, 7, 0.55))
+            drop-shadow(0 0 22px color-mix(in srgb, var(--acc, var(--lamp)) 30%, transparent));
+  }
+  /* Sigil apps: the drawn mark, large and bare — same citizen, same rules. */
+  .tvis svg {
+    width: 92px; height: 92px; display: block; margin-bottom: 12px;
+    filter: drop-shadow(0 10px 18px rgba(2, 3, 7, 0.5));
+    transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.35s;
+  }
+  .tile:hover .tvis svg {
+    transform: scale(1.08);
+    filter: drop-shadow(0 12px 22px rgba(2, 3, 7, 0.55))
+            drop-shadow(0 0 22px color-mix(in srgb, var(--acc, var(--lamp)) 34%, transparent));
+  }
+
+  /* Entrance: the room settles once per visit — a quiet staggered rise on
+     first paint only. Poll re-renders skip it (body.settled), and reduced
+     motion skips it entirely. */
+  body:not(.settled) .tile {
+    opacity: 0; transform: translateY(10px);
+    animation: rise 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+    animation-delay: calc(var(--i, 0) * 45ms);
+  }
+  @keyframes rise { to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    body:not(.settled) .tile { opacity: 1; transform: none; animation: none; }
+    .tile:hover { transform: none; }
+    .tile:hover .tvis img, .tile:hover .tvis svg { transform: none; }
+  }
+  .tile:hover .tvis { border-color: color-mix(in srgb, var(--acc, var(--lamp)) 55%, var(--rule)); }
+  /* Status lamp hangs at the mark's foot, punched out of the room itself. */
+  .tlamp {
+    position: absolute; right: 4px; bottom: 4px;
+    width: 13px; height: 13px; border-radius: 50%;
+    border: 3px solid var(--bg); background: transparent; display: none;
+  }
+  .tile.open .tlamp { display: block; background: var(--dim); }
+  .tile.running .tlamp { display: block; background: var(--moss); box-shadow: 0 0 10px rgba(127,214,168,0.5); }
+  .tile.active .tlamp { display: block; background: var(--lamp); box-shadow: 0 0 10px rgba(217,161,91,0.55); }
+  .tile.capturing .tlamp {
+    display: block; background: var(--lamp); box-shadow: 0 0 12px rgba(217,161,91,0.7);
+    animation: recpulse 1.6s ease-in-out infinite;
+  }
+  @keyframes recpulse { 0%,100%{opacity:1} 50%{opacity:.25} }
+  @media (prefers-reduced-motion: reduce) { .tile.capturing .tlamp { animation: none; } }
+
+  .tile .tbody {
+    width: 100%; min-width: 0;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+  }
+  .tile .trow { display: flex; justify-content: center; max-width: 100%; }
+  .tile .tname {
+    font-family: var(--serif); font-size: 16.5px; letter-spacing: -0.008em;
+    line-height: 1.22; color: var(--dim);
+    min-width: 0; overflow: hidden;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    transition: color 0.15s;
+  }
+  .tile:hover .tname { color: var(--text); }
+  .tile.active .tname { color: var(--lamp); }
+  .tile .tmeta {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.07em;
+    color: var(--faint); min-width: 0; overflow: hidden; max-width: 100%;
+  }
+  .tile .tmeta > * { white-space: nowrap; }
+  .tile .tmem:empty { display: none; }
+  .tile .tkind {
+    text-transform: uppercase; letter-spacing: 0.11em;
+    color: color-mix(in srgb, var(--acc, var(--moss)) 78%, var(--text));
+  }
+  .tile .tpersona { color: var(--faint); }
+  .tile .tmem { color: var(--dim); font-variant-numeric: tabular-nums; }
+  .tile .tkey {
+    color: var(--faint); border: 1px solid var(--rule); border-radius: 4px;
+    padding: 0 4px; font-size: 8.5px;
+    opacity: 0; transition: opacity 0.12s;
+  }
+  .tile:hover .tkey { opacity: 1; }
+  .tile .tctls { display: flex; justify-content: center; gap: 6px; margin-top: 2px; }
+  .tctl {
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em;
+    color: var(--faint); border: 1px solid transparent; border-radius: 5px;
+    padding: 2px 7px; cursor: pointer; background: none;
+    opacity: 0; transition: opacity 0.12s, color 0.12s, border-color 0.12s;
+  }
+  .tile:hover .tctl, .tile:focus-within .tctl { opacity: 1; }
+  .tctl:hover { color: var(--lamp); border-color: var(--rule); }
+  .tctl.stop:hover { color: #C96A5A; }
+  /* Keyboard users get everything hover users get. */
+  .tile:focus-within .tkey { opacity: 1; }
+  li:focus-within .kill { opacity: 1; }
+  :focus-visible { outline: 1.5px solid var(--moss); outline-offset: 2px; border-radius: 6px; }
+  .apps .hint { color: var(--faint); font-style: italic; font-size: 13px; padding: 4px 2px; }
+
+  /* ---------------------------------------------------------------- footer */
+  footer {
+    margin-top: 30px; padding-top: 16px; border-top: 1px solid var(--rule);
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em;
+    color: var(--faint); display: flex; align-items: center; gap: 10px;
+  }
+  .saved {
+    margin-left: auto; color: var(--moss);
+    opacity: 0; transition: opacity 0.5s;
+  }
+  .saved.show { opacity: 1; transition: opacity 0.12s; }
+</style>
+</head>
+<body>
+  <div class="lamp"></div>
+  <div class="veil"></div>
+
+  <div class="wrap">
+    <header>
+      <div class="overline">Ifreglen · The Sanctum</div>
+      <h1 class="greet" id="greet">…</h1>
+      <div class="stamp">
+        <span id="dateline"></span>
+        <i class="dot"></i>
+        <span id="clock"></span>
+      </div>
+    </header>
+
+    <section class="apps" id="apps" hidden>
+      <h2>Summonings — click to open <span class="n" id="appCount"></span></h2>
+      <div class="tiles" id="tiles"></div>
+    </section>
+
+    <div class="cols">
+      <section class="card">
+        <h2>On the desk <span class="n" id="tally"></span></h2>
+        <div class="add">
+          <span>+</span>
+          <input id="new" placeholder="what's on the desk today…" autocomplete="off" />
+        </div>
+        <ul id="list"></ul>
+        <div class="sweep" id="sweep" hidden>
+          <button id="clearDone">clear finished</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Scratch</h2>
+        <textarea id="pad" placeholder="thinking out loud…"></textarea>
+      </section>
+    </div>
+
+    <footer>
+      <span id="where">saved to this app's own store</span>
+      <span style="color:var(--faint)">Ctrl+K summons the palette from anywhere · Ctrl+1–9 jumps between apps</span>
+      <span class="saved" id="saved">saved</span>
+    </footer>
+  </div>
+
+<script src="../sigils.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+
+// Storage adapter. Prefers the shell's scoped store (survives a cleared
+// Chromium profile and can't be read by another app), falls back to
+// localStorage so the page still works if you open it outside the shell —
+// useful when editing it in a normal browser.
+const backed = !!(window.roost && window.roost.store);
+const store = {
+  // Contract: never throws. The backed path gets the same try/catch as the
+  // fallback — a rejected IPC get must not kill the whole boot IIFE and
+  // leave half the room dead.
+  async get(key, fallback) {
+    if (backed) {
+      try {
+        const r = await window.roost.store.get(key);
+        return r && r.value != null ? r.value : fallback;
+      } catch { return fallback; }
+    }
+    try {
+      const v = localStorage.getItem("lounge:" + key);
+      return v === null ? fallback : JSON.parse(v);
+    } catch { return fallback; }
+  },
+  async set(key, value) {
+    if (backed) {
+      try { return await window.roost.store.set(key, value); } catch { return; }
+    }
+    try { localStorage.setItem("lounge:" + key, JSON.stringify(value)); } catch {}
+  },
+};
+
+let savedTimer = null;
+function flashSaved() {
+  const el = $("saved");
+  el.classList.add("show");
+  clearTimeout(savedTimer);
+  savedTimer = setTimeout(() => el.classList.remove("show"), 1100);
+}
+
+// ------------------------------------------------------------------ header
+
+// Greeting brackets, in hours. Ordered latest-first so the lookup is a find().
+const HOURS = [
+  [22, "Late one.",        "Wind it down when you're ready."],
+  [17, "Evening.",         "The good hours, if you want them."],
+  [12, "Afternoon.",       "Pick the thing back up."],
+  [5,  "Morning.",         "Nothing's on fire yet."],
+  [0,  "Still up.",        "Whatever it is, it'll keep."],
+];
+
+function paintHeader() {
+  const now = new Date();
+  const h = now.getHours();
+  const [, lead, tail] = HOURS.find(([from]) => h >= from);
+  $("greet").innerHTML = `${lead} <em>${tail}</em>`;
+  $("dateline").textContent = now.toLocaleDateString(undefined, {
+    weekday: "long", month: "long", day: "numeric",
+  });
+  $("clock").textContent = now.toLocaleTimeString(undefined, {
+    hour: "numeric", minute: "2-digit",
+  });
+}
+
+// --------------------------------------------------------------- app tiles
+
+// Launch tiles for every registered app. Only present when the shell grants
+// this page the 'apps' capability; opened standalone in a browser the section
+// simply stays hidden and the lounge is still a lounge.
+const hasApps = !!(window.roost && window.roost.apps);
+
+// (status is spoken entirely by the emblem lamp now — no state words)
+
+// The emblem: registry art (a real PNG in lounge/art/) wins; otherwise the
+// app's drawn sigil from ../sigils.js; and if neither exists the sigil
+// library draws a monogram, so a freshly added app is never a blank plate.
+// A broken art path degrades to the sigil rather than a broken-image glyph.
+function emblem(a) {
+  // Last-resort monogram even if sigils.js itself failed to load (this shell
+  // has been moved three times; a broken relative path must not mean a blank
+  // plate) — the never-blank guarantee holds without the library.
+  const sig = window.roostSigils
+    ? window.roostSigils.sigil(a.id, { name: a.name, group: a.group, size: 48 })
+    : `<span style="font:600 17px var(--mono);letter-spacing:.04em;color:var(--acc,var(--dim))">${escape(String(a.name || "?").slice(0, 2).toUpperCase())}</span>`;
+  if (a.art) {
+    return `<img src="${escape(a.art)}" alt=""
+      onerror="this.parentElement.insertAdjacentHTML('afterbegin', this.dataset.sig); this.remove()"
+      data-sig="${escape(sig)}">`;
+  }
+  return sig;
+}
+
+function tileAccent(a) {
+  return window.roostSigils ? window.roostSigils.accent(a.id, a.group) : "#9B84C9";
+}
+
+// Rebuilding innerHTML on every 4s poll destroyed keyboard focus, restarted
+// hover transitions, and re-decoded every art PNG — for renders where
+// nothing changed, which is nearly all of them. Serialize what the tiles
+// actually display and skip identical paints.
+let lastTilesSig = "";
+
+function renderTiles(apps) {
+  const mine = window.roost ? window.roost.app : null;
+  // Keep each app's position in the full registry: that index, not the
+  // position after filtering, is what Ctrl+1…9 actually jumps to.
+  const list = apps.map((a, idx) => ({ ...a, idx })).filter((a) => a.id !== mine);
+  const sig = JSON.stringify(list.map((a) =>
+    [a.id, a.name, a.group, a.persona, a.kind, a.active, a.capturing, a.running, a.open, a.art, a.note]));
+  // Memory is the one figure that moves on nearly every poll. It is written
+  // into the tiles where they stand; rebuilding all of them for it recreated
+  // every emblem and its drop-shadow every 4 s.
+  const paintMem = () => {
+    for (const a of list) {
+      const el = $("tiles").querySelector(`.tmem[data-mem="${CSS.escape(a.id)}"]`);
+      const t = a.mb ? (a.mb >= 1024 ? (a.mb / 1024).toFixed(1) + " GB" : a.mb + " MB") : "";
+      if (el && el.textContent !== t) el.textContent = t;
+    }
+  };
+  if (sig === lastTilesSig) return paintMem();
+  lastTilesSig = sig;
+  $("appCount").textContent = list.length || "";
+  $("tiles").innerHTML = list.map((a, i) => `
+    <div class="tile ${a.active ? "active" : a.capturing ? "capturing" : a.running ? "running" : a.open ? "open" : ""}"
+         style="--acc:${tileAccent(a)};--i:${i}"
+         role="button" tabindex="0" data-open="${a.id}" title="${escape(a.note || a.name)}">
+      <span class="tvis">${emblem(a)}<i class="tlamp"></i></span>
+      <span class="tbody">
+      <span class="trow">
+        <span class="tname">${escape(a.group ? a.group + " · " + a.name : a.name)}</span>
+      </span>
+      <span class="tmeta">
+        <span class="tkind">${a.kind}</span>
+        <span class="tpersona">${escape(a.persona)}</span>
+        <span class="tmem" data-mem="${escape(a.id)}"></span>
+        ${a.idx < 9 ? `<span class="tkey">^${a.idx + 1}</span>` : ""}
+      </span>
+      ${window.roost.apps.stop ? `
+      <span class="tctls">
+        ${a.kind === "local" && a.running ? `<button class="tctl stop" data-stop="${a.id}">stop</button>` : ""}
+        ${a.kind === "local" ? `<button class="tctl" data-restart="${a.id}">${a.running ? "restart" : "start"}</button>` : ""}
+        ${a.open && !a.active ? `<button class="tctl" data-rest="${a.id}" title="Free its memory — cookies and logins survive">rest</button>` : ""}
+      </span>` : ""}
+      </span>
+    </div>`).join("");
+  paintMem();
+  // The entrance rise runs once; every poll re-render after that lands with
+  // no motion at all.
+  if (!document.body.classList.contains("settled")) {
+    setTimeout(() => document.body.classList.add("settled"), list.length * 45 + 600);
+  }
+}
+
+// Monotonic guard: refreshes overlap (interval + post-action timeouts +
+// visibilitychange), and a late response must not repaint stale state over a
+// newer one. Render errors are OURS and belong in the console, so only the
+// IPC call sits in the try.
+let tilesSeq = 0;
+async function refreshTiles() {
+  if (!hasApps) return;
+  const seq = ++tilesSeq;
+  let r;
+  try { r = await window.roost.apps.list(); } catch { return; }
+  if (seq !== tilesSeq) return;
+  if (r && Array.isArray(r.apps)) renderTiles(r.apps);
+}
+
+$("tiles").addEventListener("click", async (e) => {
+  const stop = e.target.closest("[data-stop]");
+  if (stop) {
+    e.stopPropagation();
+    await window.roost.apps.stop(stop.dataset.stop);
+    setTimeout(refreshTiles, 300);
+    return;
+  }
+  const rest = e.target.closest("[data-rest]");
+  if (rest) {
+    e.stopPropagation();
+    if (window.roost.apps.close) await window.roost.apps.close(rest.dataset.rest);
+    setTimeout(refreshTiles, 300);
+    return;
+  }
+  const restart = e.target.closest("[data-restart]");
+  if (restart) {
+    e.stopPropagation();
+    restart.textContent = "…";
+    await window.roost.apps.restart(restart.dataset.restart);
+    setTimeout(refreshTiles, 300);
+    return;
+  }
+  const t = e.target.closest("[data-open]");
+  if (!t) return;
+  window.roost.apps.open(t.dataset.open);
+  // The shell switches views out from under us; refresh on return.
+  setTimeout(refreshTiles, 400);
+});
+$("tiles").addEventListener("keydown", (e) => {
+  if (e.key !== "Enter" && e.key !== " ") return;
+  const t = e.target.closest("[data-open]");
+  if (t) { e.preventDefault(); window.roost.apps.open(t.dataset.open); }
+});
+
+// -------------------------------------------------------------- intentions
+
+let items = [];
+
+function render() {
+  const list = $("list");
+  if (!items.length) {
+    list.innerHTML = '<li class="empty">Nothing yet. That&rsquo;s allowed.</li>';
+  } else {
+    list.innerHTML = items.map((it, i) => `
+      <li class="${it.done ? "done" : ""}">
+        <span class="box" data-toggle="${i}" role="checkbox"
+              aria-checked="${!!it.done}" tabindex="0"></span>
+        <span class="what">${escape(it.text)}</span>
+        <button class="kill" data-kill="${i}" title="remove">✕</button>
+      </li>`).join("");
+  }
+
+  const done = items.filter((i) => i.done).length;
+  $("tally").textContent = items.length ? `${done}/${items.length}` : "";
+  $("sweep").hidden = done === 0;
+}
+
+function escape(s) {
+  return String(s ?? "").replace(/[&<>"']/g, (c) => (
+    { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
+  ));
+}
+
+async function save() {
+  await store.set("items", items);
+  flashSaved();
+}
+
+$("list").addEventListener("click", (e) => {
+  const t = e.target.closest("[data-toggle]");
+  if (t) {
+    const i = Number(t.dataset.toggle);
+    items[i].done = !items[i].done;
+    render(); save();
+    return;
+  }
+  const k = e.target.closest("[data-kill]");
+  if (k) {
+    items.splice(Number(k.dataset.kill), 1);
+    render(); save();
+  }
+});
+
+// Space/Enter on a focused checkbox, for anyone driving this from the keyboard.
+$("list").addEventListener("keydown", (e) => {
+  if (e.key !== " " && e.key !== "Enter") return;
+  const t = e.target.closest("[data-toggle]");
+  if (!t) return;
+  e.preventDefault();
+  const i = Number(t.dataset.toggle);
+  items[i].done = !items[i].done;
+  render(); save();
+});
+
+$("new").addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+  const text = e.target.value.trim();
+  if (!text) return;
+  items.push({ text, done: false });
+  e.target.value = "";
+  render(); save();
+});
+
+$("clearDone").onclick = () => {
+  items = items.filter((i) => !i.done);
+  render(); save();
+};
+
+// ----------------------------------------------------------------- scratch
+
+// Debounced so a burst of typing is one write, not one per keystroke.
+let padTimer = null;
+$("pad").addEventListener("input", (e) => {
+  clearTimeout(padTimer);
+  padTimer = setTimeout(async () => {
+    await store.set("pad", e.target.value);
+    flashSaved();
+  }, 600);
+});
+
+// -------------------------------------------------------------------- boot
+
+(async () => {
+  paintHeader();
+  // Half a minute is enough for a clock that only shows hours and minutes,
+  // and it keeps the greeting honest across a rollover without a per-second
+  // timer running behind everything else all day.
+  setInterval(paintHeader, 30000);
+
+  // Desk and scratch load FIRST: their inputs are live from parse time, and
+  // anything typed before a late store.get resolved used to be clobbered by
+  // the assignment (then permanently overwritten by the next save).
+  items = await store.get("items", []);
+  if (!Array.isArray(items)) items = [];
+  render();
+  $("pad").value = await store.get("pad", "") || "";
+
+  if (hasApps) {
+    $("apps").hidden = false;
+    await refreshTiles();
+    // Cheap poll keeps the status dots honest while servers start and stop —
+    // paused while the Sanctum isn't the visible app.
+    setInterval(() => { if (!document.hidden) refreshTiles(); }, 4000);
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) refreshTiles();
+    });
+  }
+
+  if (!backed) {
+    $("where").textContent = "browser storage — open me in the shell for the scoped store";
+  }
+
+})();
+</script>
+</body>
+</html>

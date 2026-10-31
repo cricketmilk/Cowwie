@@ -5,23 +5,45 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
+    <!-- usesCleartextTraffic: the desk (Ifreglen) is a plain-HTTP server on the
+         LAN, reached by IP; there is no certificate to pin and Android blocks
+         cleartext by default from API 28. The only credential is the bearer. -->
     <application
         android:label="@string/app_name"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:usesCleartextTraffic="true"
         android:theme="@android:style/Theme.Material.NoActionBar">
 
+        <!-- singleTask so a pairing link opened while the dashboard is up lands
+             in onNewIntent instead of stacking a second dashboard. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTask"
             android:configChanges="orientation|screenSize|keyboardHidden">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- goat://pair?token=...&host=... is the desk's pairing deep link
+                 (Ifreglen's /pair page and the Trove's QR). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="goat" android:host="pair" />
             </intent-filter>
         </activity>
 
         <!-- People: snap a photo, say their name, browse later. -->
         <activity
             android:name=".PeopleActivity"
+            android:exported="false" />
+
+        <!-- Follow-ups: the day's small promises, typed or spoken. -->
+        <activity
+            android:name=".TasksActivity"
             android:exported="false" />
 
         <!-- Lets the system camera write captured photos into our private files dir. -->
@@ -34,6 +56,21 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- The desk bridge: this phone's notifications as cards on Ifreglen,
+             and the desk's replies typed into each notification's own Reply
+             box. Bound by the system (keeps running with the app closed), which
+             is why it is a service and not part of the dashboard. Opt-in under
+             Settings > Notifications > Device & app notifications. -->
+        <service
+            android:name=".desk.DeskNotificationListener"
+            android:exported="true"
+            android:label="@string/listener_label"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
 
         <!-- Screensaver mode: shows the calendar whenever the phone is docked/charging.
              Enable under Settings > Display > Screen saver. -->

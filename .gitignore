@@ -12,3 +12,6 @@ captures/
 *.keystore
 .kotlin/
 .dyad/
+
+# Ifreglen ships its icons (root build/ rule is for Gradle)
+!desktop/build/

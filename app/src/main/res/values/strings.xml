@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Cowwie</string>
+    <string name="app_name">Professional Goat</string>
+    <string name="desk_name">Ifreglen</string>
+    <string name="listener_label">Professional Goat · desk bridge</string>
 </resources>

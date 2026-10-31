@@ -1,0 +1,302 @@
+/* Auri's palette, lifted from her sheets: her face, her hair, the poinsettia,
+   the holly, the bells, her eyes. Persona's red/black/white, re-dyed in her
+   colours, so the cards read as hers and not as a game's. */
+:root {
+  --ink: #0b0910; --ink2: #160f17; --bone: #f3efd6; --bone2: #d8d2b4; --dim: #8d8577;
+  --red: #d9262b; --red-deep: #7a0f17; --gold: #f2b02d; --holly: #3f8a2a; --ember: #ffb21c;
+  --tilt: -1.2deg; --skew: -7deg;
+  --cut: polygon(0 0, 100% 0, 97.4% 44%, 100% 100%, 0 100%);
+  --ui: Bahnschrift, "Segoe UI", "Arial Narrow", sans-serif;
+  /* the colour each kind of work glows: paint, screen, parchment, rune */
+  --art: #e0663a; --code: #3fb6d9; --write: #d8c79a; --research: #8f7ad6;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: transparent; overflow: hidden; color: var(--bone); font-family: var(--ui); }
+[hidden] { display: none !important; }
+button { font: inherit; color: inherit; }
+
+#col { position: absolute; top: 8px; right: 22px; width: 470px; display: flex; flex-direction: column; align-items: stretch; gap: 14px; }
+#cards { display: flex; flex-direction: column; gap: 22px; }
+#cards:empty, #tasks:empty { display: none; }
+#tasks { display: flex; flex-direction: column; gap: 10px; }
+
+/* ---------------------------------------------------------------- faces */
+/* Pixel art: every native pixel is a whole number of device pixels (--k is
+   set per face from devicePixelRatio, the way Müt's page does it), motion is
+   in whole native pixels, stepped, and a "pop" is a bounce, never a zoom. */
+.portrait { position: absolute; pointer-events: none; }
+.anchor { position: absolute; }
+.face { position: absolute; }
+.face img { position: absolute; image-rendering: pixelated; display: block; }
+.face .body { left: 0; top: 0; }
+/* pixel-stepped eyelids over her open eyes: a quiet double-blink on her dark face */
+.face .lid { position: absolute; z-index: 1; background: var(--ink); pointer-events: none; transform-origin: top; transform: scaleY(0); animation: blink 4.8s steps(2) infinite; }
+@keyframes blink { 0%, 91%, 95.5%, 100% { transform: scaleY(0); } 93%, 97.5% { transform: scaleY(1); } }
+/* mood motion families in whole native pixels (--k) */
+.face.m-idle { animation: m-idle 2.8s steps(2) infinite; }
+.face.m-sleep { animation: m-sleep 3.8s steps(2) infinite; }
+.face.m-alert { animation: m-alert 1.2s steps(2) infinite; }
+.face.m-seethe { animation: m-seethe .55s steps(2) infinite; }
+.face.m-sway { animation: m-sway 2.2s steps(4) infinite; }
+.face.m-joy { animation: m-joy 1.4s steps(2) infinite; }
+.face.m-ring { animation: m-ring .42s steps(2) infinite; }
+.face.m-work { animation: m-work 1.9s steps(2) infinite; }
+@keyframes m-idle { 50% { transform: translateY(calc(var(--k, 2px) * -1)); } }
+@keyframes m-sleep { 50% { transform: translateY(var(--k, 2px)); } }
+@keyframes m-alert { 50% { transform: translateY(calc(var(--k, 2px) * -1)); } }
+@keyframes m-seethe { 50% { transform: translateX(var(--k, 2px)); } }
+@keyframes m-sway { 25% { transform: translateX(calc(var(--k, 2px) * -1)); } 75% { transform: translateX(var(--k, 2px)); } }
+@keyframes m-joy { 50% { transform: translateY(calc(var(--k, 2px) * -1)); } }
+@keyframes m-ring { 50% { transform: translate(var(--k, 2px), calc(var(--k, 2px) * -1)); } }
+@keyframes m-work { 50% { transform: translateY(calc(var(--k, 2px) * -1)); } }
+/* the loose marks: stepped pixel choreography per mood family */
+.fx.tw { animation: tw 1.9s steps(3) infinite; }
+.fx.dr { animation: dr 2.6s steps(2) infinite; }
+.fx.zz { animation: zz 3.2s steps(4) infinite; }
+.fx.rs { animation: rs 1.5s steps(3) infinite; }
+.fx.sn { animation: sn .65s steps(2) infinite; }
+.fx.wk { animation: wk 1.4s steps(3) infinite; }
+@keyframes tw { 0%, 100% { opacity: 1; transform: none; } 50% { opacity: .45; transform: translateY(calc(var(--k, 2px) * -1)); } }
+@keyframes dr { 50% { transform: translateY(calc(var(--k, 2px) * -1)); } }
+@keyframes zz { 0% { opacity: .35; transform: none; } 50% { opacity: 1; transform: translate(var(--k, 2px), calc(var(--k, 2px) * -1)); } 100% { opacity: .2; transform: translate(var(--k, 2px), calc(var(--k, 2px) * -2)); } }
+@keyframes rs { 50% { transform: translateY(calc(var(--k, 2px) * -2)); } }
+@keyframes sn { 50% { transform: translate(var(--k, 2px), calc(var(--k, 2px) * -1)); } }
+@keyframes wk { 33% { transform: translateY(calc(var(--k, 2px) * -1)); } 66% { transform: translate(var(--k, 2px), calc(var(--k, 2px) * -1)); } }
+.cheer .fx { animation-duration: .45s !important; animation-iteration-count: 3 !important; }
+
+/* ---------------------------------------------------------------- top row */
+#top { display: flex; align-items: center; justify-content: flex-end; gap: 18px; min-height: 0; }
+#top:has(#pip[hidden]):has(#legend:not(.on)) { display: none; }
+#pip { position: relative; display: flex; align-items: center; gap: 9px; background: var(--ink); border: 0; cursor: pointer;
+  padding: 5px 14px 5px 52px; height: 32px; transform: skewX(var(--skew)); box-shadow: 4px 4px 0 var(--red), 0 0 0 2px var(--bone); }
+#pip b { font: 900 13px/1 var(--ui); letter-spacing: .3em; }
+#pipn { font: 900 15px/1 Impact, var(--ui); background: var(--red); color: #fff; padding: 3px 7px 2px; min-width: 24px; text-align: center; }
+#pipn:empty { display: none; }
+#pip.quiet b::after { content: " \00b7 QUIET"; color: #8f9ad6; letter-spacing: .14em; }
+/* Resting: a portrait frame that holds all of her, horns to collar, and
+   nothing else, so the corner she claims is small. Her drawings stop at the
+   collar in a straight line; sat on the frame's bottom edge that line is the
+   frame, not a crop. Deep red behind her so her black horns read, and no bone
+   ring: on a dark app that pale line was a white edge round her. */
+#pip.rest { width: 62px; height: 70px; padding: 0; background: var(--red-deep); box-shadow: 4px 4px 0 var(--ink); }
+#pip.rest b { display: none; }
+#pip.rest .portrait.mini { left: 0; width: 100%; clip-path: inset(0); }
+#pip.bump { animation: pipbump .3s steps(3); }
+@keyframes pipbump { 40% { translate: 0 -4px; } }
+.portrait.mini { left: 6px; top: 0; bottom: 0; width: 40px; transform: skewX(calc(var(--skew) * -1)); clip-path: inset(-30px 0 0 0); }
+#legend { display: none; gap: 14px; font: 700 11px/1 var(--ui); letter-spacing: .12em; color: var(--bone2); text-transform: uppercase;
+  background: #0b0910d9; padding: 7px 10px; }
+#legend.on { display: flex; }
+#legend kbd { margin-right: 6px; transform: rotate(-6deg) scale(.85); }
+
+/* ---------------------------------------------------------------- drawer */
+#drawer { background: var(--ink); box-shadow: 6px 6px 0 var(--red), 0 0 0 2px var(--bone); padding: 8px 0 6px; max-height: 360px; overflow: auto; }
+#drawer h3 { display: flex; justify-content: space-between; align-items: center; margin: 4px 16px 8px; font: 800 11px/1 var(--ui); letter-spacing: .24em; color: var(--gold); }
+#drawer h3 button { background: none; border: 0; color: var(--dim); font: 700 10px/1 var(--ui); letter-spacing: .16em; cursor: pointer; }
+#drawer h3 button:hover { color: var(--bone); }
+#drawer .row { position: relative; display: flex; gap: 12px; align-items: center; padding: 8px 16px 8px 64px; min-height: 52px; border-top: 1px solid #231a25; cursor: pointer; }
+#drawer .row:hover { background: #1a1220; }
+#drawer .row .portrait { left: 6px; top: 0; bottom: 0; width: 52px; clip-path: inset(0); }
+#drawer .row b { display: block; font: 800 13px/1.2 var(--ui); }
+#drawer .row b i { font-style: normal; font-weight: 600; color: var(--gold); letter-spacing: .08em; font-size: 11px; margin-left: 6px; text-transform: uppercase; }
+#drawer .row .txt span { font: 500 13px/1.3 var(--ui); color: #b5ad9b; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+#drawer .empty { padding: 10px 16px 12px; color: var(--dim); font-size: 13px; }
+#ask { display: flex; align-items: center; gap: 10px; margin: 6px 14px 10px; background: var(--bone); padding: 8px 12px;
+  clip-path: polygon(0 0, 100% 0, 98.5% 100%, 0 100%); }
+#askIn { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; color: var(--ink); font: 700 15px/1.2 var(--ui); }
+#askIn::placeholder { color: #6e675a; }
+#ask kbd { background: var(--red); color: #fff; box-shadow: 2px 2px 0 var(--ink); }
+.dverbs { display: flex; gap: 8px; margin: 0 14px 8px; }
+.dverbs button { flex: 1; background: #1d1520; border: 1px solid #3a2d40; color: var(--bone); padding: 7px 8px; cursor: pointer;
+  font: 700 11px/1 var(--ui); letter-spacing: .12em; text-transform: uppercase; }
+.dverbs button:hover { border-color: var(--gold); color: var(--gold); }
+.dverbs button[disabled] { opacity: .5; cursor: default; }
+.dphone { display: flex; align-items: center; gap: 8px; margin: 2px 16px 8px; font: 600 11px/1.3 var(--ui); color: var(--dim); letter-spacing: .04em; }
+.dphone i { width: 8px; height: 8px; border-radius: 4px; background: #4a4150; flex: none; }
+.dphone.on i { background: var(--holly); box-shadow: 0 0 6px var(--holly); }
+.dphone.warn i { background: var(--gold); }
+body.dropping #col { outline: 2px dashed var(--gold); outline-offset: 4px; }
+
+/* ---------------------------------------------------------------- tasks */
+/* A strip, not a card: calm, one line, no keys. It moves a pixel or two while
+   the work runs and nothing more — this is the thing you glance at for ten
+   minutes, so it must never ask for attention it has not earned. */
+.strip { position: relative; height: 62px; margin-left: 30px; transform: skewX(var(--skew)); --glow: var(--code); }
+.strip.k-art { --glow: var(--art); } .strip.k-write { --glow: var(--write); } .strip.k-research { --glow: var(--research); }
+.strip .panel { position: absolute; inset: 0; background: linear-gradient(100deg, var(--ink) 55%, var(--ink2)); border-left: 4px solid var(--glow);
+  box-shadow: 3px 3px 0 #000a, 0 0 0 1px #ffffff14; padding: 9px 20px 0 108px; overflow: hidden; }
+.strip .halo { position: absolute; left: -10px; top: -12px; width: 96px; height: 96px; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, color-mix(in srgb, var(--glow) 45%, transparent) 0, transparent 66%); animation: breathe 3.2s ease-in-out infinite; }
+@keyframes breathe { 50% { opacity: .55; } }
+.strip .portrait { left: 0; top: -22px; bottom: 0; width: 96px; transform: skewX(calc(var(--skew) * -1)); clip-path: inset(-40px -30px 0 -30px); }
+.strip .anchor { animation: bob 2.6s steps(2) infinite; }
+@keyframes bob { 50% { transform: translateY(calc(var(--kb, 2px) * -1)); } }
+.strip .line1 { display: flex; align-items: baseline; gap: 8px; white-space: nowrap; overflow: hidden; }
+.strip .tag { font: 800 10px/1 var(--ui); letter-spacing: .2em; color: var(--glow); }
+.strip .who { font: 800 14px/1.2 var(--ui); }
+.strip .title { font: 500 13px/1.2 var(--ui); color: var(--bone2); overflow: hidden; text-overflow: ellipsis; }
+.strip .elapsed { margin-left: auto; font: 600 11px/1 var(--ui); color: var(--dim); letter-spacing: .06em; font-variant-numeric: tabular-nums; }
+.strip .step { margin-top: 5px; font: 500 12.5px/1.2 Consolas, "Courier New", monospace; color: #c9c2a8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.strip .step.fresh { animation: stepin .32s steps(3); }
+@keyframes stepin { from { opacity: .2; transform: translateX(6px); } }
+.strip.k-write .step::after { content: ""; animation: dots 1.4s steps(4) infinite; }
+@keyframes dots { 0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; } }
+/* progress: a fill when the work says how far along it is, otherwise one slow
+   glint along the bottom edge so you can tell it is alive at a glance */
+.strip .bar { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: #ffffff10; overflow: hidden; }
+.strip .bar i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--glow); transition: width .6s steps(6); }
+.strip .bar.idle i { width: 28%; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--glow) 70%, transparent), transparent); animation: glint 2.8s linear infinite; }
+@keyframes glint { from { transform: translateX(-100%); } to { transform: translateX(360%); } }
+/* a faint ambience per kind, behind the words — under 10% so it is felt, not read */
+.strip .amb { position: absolute; inset: 0; pointer-events: none; opacity: .09; }
+/* code: columns of dots rising, stepped, the way a terminal scrolls */
+.strip.k-code .amb { opacity: .1; background-image: repeating-linear-gradient(180deg, var(--code) 0 2px, transparent 2px 9px);
+  -webkit-mask: repeating-linear-gradient(90deg, #000 0 2px, transparent 2px 15px); animation: rain 3.6s steps(12) infinite; }
+@keyframes rain { to { background-position: 0 -36px; } }
+/* research: two faint rays turning slowly round her, the vortex at rest */
+@property --turn { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+.strip.k-research .amb { background: conic-gradient(from var(--turn) at 46px 30px, transparent 0 40deg, var(--research) 60deg, transparent 80deg 220deg, var(--research) 240deg, transparent 260deg);
+  animation: turn 14s linear infinite; }
+@keyframes turn { to { --turn: 360deg; } }
+.strip.k-art .amb { background: linear-gradient(90deg, var(--art), var(--gold), var(--holly), var(--code), var(--art)); background-size: 400% 100%; animation: wash 12s linear infinite; opacity: .06; }
+@keyframes wash { to { background-position: 400% 0; } }
+.strip.in { animation: stripin .36s cubic-bezier(.2, 1.2, .4, 1) both; }
+@keyframes stripin { from { opacity: 0; transform: translateX(40px) skewX(var(--skew)); } }
+/* landing: the bar fills, her face turns into the finished drawing, one soft
+   glint crosses the strip, and it folds away as the completion card arrives */
+.strip.finishing .bar i { width: 100% !important; background: var(--glow); animation: none; transition: width .5s steps(5); }
+.strip.finishing .anchor { animation: none; }
+.strip.finishing .panel::after, .card.land .panel::after { content: ""; position: absolute; top: 0; bottom: 0; width: 40%; left: -40%;
+  background: linear-gradient(100deg, transparent, #ffffff1f, transparent); animation: sheen .9s ease-out .15s forwards; }
+@keyframes sheen { to { left: 110%; } }
+.strip.folding { animation: fold .32s ease-in forwards; }
+@keyframes fold { to { opacity: 0; height: 0; margin-top: -10px; } }
+.strip.gone { animation: fold .3s ease-in forwards; }
+.strip .more { font: 700 11px/1 var(--ui); }
+.strip-more { align-self: flex-end; margin-right: 6px; font: 700 11px/1 var(--ui); letter-spacing: .14em; color: var(--dim); text-transform: uppercase; }
+
+/* ---------------------------------------------------------------- cards */
+.card { position: relative; outline: none; transform: skewX(var(--skew)) rotate(var(--tilt)); transform-origin: right center; transition: filter .2s; }
+.card:not(.front) { filter: brightness(.62) saturate(.75); }
+.card:not(.front):hover { filter: brightness(.85); }
+.card .plate { position: absolute; inset: 0; clip-path: var(--cut); }
+.card .plate.red { background: var(--red); transform: translate(10px, 10px); }
+.card .plate.bone { background: var(--bone); transform: translate(4px, 4px); }
+.card .panel { position: relative; background: linear-gradient(100deg, var(--ink) 60%, var(--ink2)); clip-path: var(--cut); min-height: 116px; padding: 13px 30px 18px 138px; border-left: 7px solid var(--red); overflow: hidden; }
+.card .portrait { left: 0; top: 0; bottom: 0; width: 138px; clip-path: inset(-140px -50px 0 -50px); z-index: 2; }
+/* Her drawings stop at the collar in a straight line. On a card taller than
+   she is, that line sat in the middle of the panel like a crop mark; the last
+   stretch of her fades out instead. (On a short card the panel's edge cuts
+   her first and this is never seen.) */
+.card .portrait .face { -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 26px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 26px), transparent); }
+.card .burst { position: absolute; left: -26px; top: -26px; width: 150px; height: 150px;
+  clip-path: polygon(50% 0, 58% 22%, 79% 7%, 74% 31%, 98% 28%, 82% 46%, 100% 62%, 76% 66%, 86% 90%, 63% 78%, 52% 100%, 43% 79%, 20% 93%, 25% 68%, 0 70%, 17% 51%, 2% 30%, 26% 32%, 20% 8%, 42% 22%);
+  background: repeating-conic-gradient(from 0deg, var(--b1, var(--red)) 0 9deg, var(--b2, #1a0b10) 9deg 18deg); opacity: .92; animation: spin 22s linear infinite; }
+@keyframes spin { to { rotate: 360deg; } }
+.card .portrait .face-box { position: absolute; left: 0; top: 0; transform: skewX(calc(var(--skew) * -1)) rotate(calc(var(--tilt) * -1)); }
+.card.front .anchor { animation: bob 1.6s steps(2) infinite; }
+
+.card .meta { display: flex; align-items: center; gap: 10px; min-height: 22px; }
+.card .tag { display: inline-block; background: var(--tagbg, var(--bone)); color: var(--tagfg, var(--ink)); font: 800 12px/1 var(--ui); letter-spacing: .14em; padding: 5px 10px 4px; transform: rotate(-3deg); box-shadow: 3px 3px 0 var(--red); }
+.card .chan { font: 700 11px/1 var(--ui); letter-spacing: .16em; text-transform: uppercase; color: var(--gold); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 190px; }
+.card .when { margin-left: auto; font: 600 11px/1 var(--ui); color: var(--dim); letter-spacing: .08em; }
+.card .count { display: none; background: var(--red); color: #fff; font: 900 13px/1 Impact, var(--ui); padding: 4px 7px 3px; transform: rotate(6deg); box-shadow: 2px 2px 0 var(--bone); }
+.card.many .count { display: inline-block; }
+
+/* speaker nameplate: illuminated initial crest cap + crisp JRPG banner type */
+.card .who { margin: 8px 0 3px; font-size: 22px; line-height: 1.15; display: flex; flex-wrap: wrap; align-items: center; gap: .5px; min-height: 26px; letter-spacing: .02em; }
+.rl { display: inline-block; padding: 0 3px; font-weight: 900; }
+.rl.cap { padding: 1px 6px 0; margin-right: 4px; font-size: 1.05em; line-height: 1.1; transform: skewX(-6deg) rotate(-2deg); box-shadow: 2px 2px 0 var(--ink), 0 0 0 1.5px var(--bone); }
+.rl.chr { padding: 0 .5px; font-weight: 800; color: var(--bone); text-shadow: 2px 2px 0 var(--ink); }
+.rl.ink { background: var(--ink); color: var(--bone); box-shadow: inset 0 0 0 2px var(--bone); }
+.rl.bone { background: var(--bone); color: var(--ink); }
+.rl.red { background: var(--red); color: var(--bone); }
+.rl.gold { background: var(--gold); color: var(--ink); }
+.rl.holly { background: var(--holly); color: var(--bone); }
+.rl.gap { width: 7px; background: none; box-shadow: none; }
+
+.card .body { margin: 2px 0 0; font: 600 15px/1.32 var(--ui); color: var(--bone); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; max-width: 290px; }
+.card .cmd { display: block; margin-top: 7px; font: 13px/1.3 Consolas, "Courier New", monospace; background: #22080d; color: #ffc2b6; border-left: 3px solid var(--red); padding: 5px 9px; max-width: 290px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card .choices { display: flex; flex-wrap: wrap; gap: 6px 10px; margin-top: 9px; max-width: 300px; }
+.card .choices button { background: #1d1520; border: 1px solid #3a2d40; padding: 5px 9px 5px 5px; cursor: pointer; display: flex; gap: 7px; align-items: center; font: 700 12px/1 var(--ui); color: var(--bone); }
+.card .choices button:hover { border-color: var(--gold); }
+
+.card .actions { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 11px; }
+.card .actions button { background: none; border: 0; padding: 0; display: flex; align-items: center; gap: 6px; cursor: pointer; font: 700 12px/1 var(--ui); letter-spacing: .1em; text-transform: uppercase; }
+.card .actions button:hover span { color: var(--gold); }
+kbd { display: inline-grid; place-items: center; min-width: 23px; height: 23px; padding: 0 5px; background: var(--bone); color: var(--ink); font: 900 12px/1 var(--ui); transform: rotate(-6deg); box-shadow: 2px 2px 0 var(--red); }
+.card .actions .go kbd { background: var(--holly); color: #fff; box-shadow: 2px 2px 0 var(--bone); }
+.card .actions .stop kbd { background: var(--red); color: #fff; box-shadow: 2px 2px 0 var(--bone); }
+.card:not(.front) .actions { opacity: .5; }
+/* the keys only reach her once she has the keyboard; until then, say how */
+.card .summon { display: none; margin-top: 9px; font: 700 11px/1 var(--ui); letter-spacing: .14em; color: var(--gold); text-transform: uppercase; }
+body:not(.focused) .card.front.band3:not(.resolved) .summon { display: block; }
+body:not(.focused) .card .actions kbd, body:not(.focused) .card .choices kbd { opacity: .55; }
+
+.card .timer { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: #ffffff14; }
+.card .timer i { display: block; height: 100%; background: var(--gold); transform-origin: left; }
+.card .busy { display: none; }
+.card.is-busy .actions { opacity: .35; pointer-events: none; }
+
+/* behind the front card a card is one line: who, and the gist */
+.card:not(.front) .panel { min-height: 70px; padding: 9px 26px 11px 104px; }
+.card:not(.front) .actions, .card:not(.front) .cmd, .card:not(.front) .reply, .card:not(.front) .choices { display: none; }
+.card:not(.front) .body { -webkit-line-clamp: 1; font-size: 13px; }
+.card:not(.front) .who { font-size: 17px; margin: 5px 0 1px; min-height: 0; }
+.card:not(.front) .portrait { width: 104px; }
+.card:not(.front) .burst { width: 104px; height: 104px; left: -16px; top: -18px; }
+
+.card .reply { display: none; margin: 12px 0 0 112px; background: var(--bone); clip-path: polygon(0 0, 100% 0, 98.5% 100%, 0 100%); padding: 7px 12px; align-items: center; gap: 10px; }
+.card.replying .reply { display: flex; animation: unfurl .24s cubic-bezier(.2, 1.4, .4, 1) both; }
+@keyframes unfurl { from { clip-path: polygon(0 0, 0 0, 0 100%, 0 100%); } }
+.card .reply input { flex: 1; border: 0; background: transparent; font: 700 16px/1.2 var(--ui); color: var(--ink); outline: none; min-width: 0; }
+.card .reply kbd { background: var(--red); color: #fff; box-shadow: 2px 2px 0 var(--ink); }
+.card .reply .via { font: 700 10px/1 var(--ui); letter-spacing: .14em; color: #6e675a; text-transform: uppercase; }
+.card.resolved .actions, .card.resolved .timer, .card.resolved .choices, .card.resolved .reply, .card.resolved .summon { display: none !important; }
+
+/* per kind: the tag and the burst take the kind's colour */
+.k-approval { --tagbg: var(--gold); --b1: var(--gold); }
+.k-question { --b1: #c9c2a2; }
+.k-done, .k-task-done { --tagbg: var(--holly); --tagfg: #fff; --b1: var(--holly); }
+.k-error { --tagbg: var(--red); --tagfg: #fff; }
+.k-missed, .k-task-failed { --tagbg: #5b2340; --tagfg: #fff; --b1: #6d2a4c; }
+.k-pileup, .card.pile { --tagbg: #3d5fa8; --tagfg: #fff; --b1: #3d5fa8; }
+.k-digest { --tagbg: #2b2f45; --tagfg: var(--bone); --b1: #2b2f45; }
+.k-look, .k-hello { --tagbg: var(--ember); --b1: var(--ember); }
+.k-love { --tagbg: #e4507a; --tagfg: #fff; --b1: #e4507a; }
+.k-call { --tagbg: var(--gold); --b1: var(--gold); }
+.k-offline { --tagbg: #3d5fa8; --tagfg: #fff; --b1: #3d5fa8; }
+.k-blocked { --tagbg: var(--red); --tagfg: #fff; }
+.k-task-done.t-art { --b1: var(--art); } .k-task-done.t-code { --b1: var(--code); }
+.k-task-done.t-write { --b1: var(--write); } .k-task-done.t-research { --b1: var(--research); }
+.k-approval.band3:not(.resolved) .plate.red { animation: throb 1.1s ease-in-out infinite; }
+@keyframes throb { 50% { background: var(--gold); transform: translate(13px, 13px); } }
+
+/* ---------------------------------------------------------------- motion */
+@keyframes slam {
+  0% { transform: translateX(135%) skewX(-24deg) rotate(var(--tilt)) scaleX(1.35); filter: blur(9px) brightness(2.2); }
+  55% { transform: translateX(-5%) skewX(-13deg) rotate(var(--tilt)) scaleX(.97); filter: blur(0) brightness(1.25); }
+  78% { transform: translateX(1.6%) skewX(-6deg) rotate(var(--tilt)); }
+  100% { transform: skewX(var(--skew)) rotate(var(--tilt)); filter: none; } }
+.card.in-slam { animation: slam .44s cubic-bezier(.2, .9, .25, 1) both; }
+.card.in-slam .panel::before { content: ""; position: absolute; inset: 0; background: #fff; opacity: 0; animation: flash .26s ease-out .08s; pointer-events: none; }
+@keyframes flash { 20% { opacity: .5; } 100% { opacity: 0; } }
+@keyframes slide { from { transform: translateX(112%) skewX(var(--skew)) rotate(var(--tilt)); opacity: 0; } }
+.card.in-slide { animation: slide .3s cubic-bezier(.2, 1.25, .4, 1) both; }
+/* a completion arrives gently: it rose out of a strip you already saw */
+@keyframes land { from { transform: translateY(-10px) skewX(var(--skew)) rotate(var(--tilt)); opacity: 0; } }
+.card.land { animation: land .42s cubic-bezier(.2, 1, .3, 1) both; }
+/* her pop is a bounce in whole pixels, never a zoom */
+@keyframes hop { 0% { transform: translateY(calc(var(--kb, 2px) * 8)); opacity: 0; } 55% { transform: translateY(calc(var(--kb, 2px) * -3)); opacity: 1; } 80% { transform: translateY(var(--kb, 2px)); } 100% { transform: none; } }
+.face-box.hop { animation: hop .44s steps(6) both; }
+@keyframes out { to { clip-path: inset(0 0 0 100%); transform: translateX(24%) skewX(-20deg) rotate(var(--tilt)); } }
+.card.out { animation: out .26s cubic-bezier(.6, 0, .9, .4) forwards; pointer-events: none; }
+@keyframes bump { 0%, 100% { transform: skewX(var(--skew)) rotate(var(--tilt)); } 30% { transform: translateX(-9px) skewX(-10deg) rotate(-2.2deg); } 60% { transform: translateX(5px) skewX(-5deg) rotate(-.4deg); } }
+.card.bump { animation: bump .32s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .card.in-slam, .card.in-slide, .card.land, .strip.in { animation: fade .18s both; }
+  .card.in-slam .panel::before, .burst, .anchor, .face, .face .lid, .fx, .face-box.hop, .strip .amb, .strip .halo, .k-approval.band3 .plate.red,
+  .strip .bar.idle i, .strip.finishing .panel::after, .card.land .panel::after { animation: none !important; }
+  @keyframes fade { from { opacity: 0; } }
+}

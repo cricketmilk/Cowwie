@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'">
+<title>Auri</title>
+<!-- The herald: Auri's cards over the top-right of the app area.
+
+     Nothing here paints a background. The page IS the
+     transparency, and main.js sizes the view to the column below and no
+     larger, because a transparent view still eats every click inside its
+     bounds. That is the rail-width rule in reverse: the rail broke when a
+     sheet was drawn bigger than its view; this view breaks the app under it
+     the moment it is bigger than what it draws. -->
+<link rel="stylesheet" href="herald.css">
+</head>
+<body>
+<main id="col" aria-live="polite">
+  <div id="top">
+    <div id="legend"><span><kbd>Tab</kbd>next</span><span><kbd>Esc</kbd>dismiss</span><span><kbd>`</kbd>drawer</span></div>
+    <button id="pip" title="Auri: what's waiting (Ctrl+`)"><span id="pipface" class="portrait mini"></span><b>AURI</b><span id="pipn"></span></button>
+  </div>
+  <section id="drawer" hidden>
+    <!-- The drawer: ask Kenoma, and a line saying whether the phone
+         (Professional Goat) is in reach. Fixed markup, so a state update
+         never wipes what you are typing. -->
+    <form id="ask" autocomplete="off"><input id="askIn" placeholder="Ask Kenoma to do something…" aria-label="Ask Kenoma" maxlength="4000"><kbd>&#8629;</kbd></form>
+    <div id="phoneLine" class="dphone"></div>
+    <div id="drawerList"></div>
+  </section>
+  <section id="tasks"></section>
+  <section id="cards"></section>
+</main>
+<script src="auri/faces.js"></script>
+<script src="herald.js"></script>
+</body>
+</html>

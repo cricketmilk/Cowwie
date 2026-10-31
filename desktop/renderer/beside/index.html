@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Beside</title>
+<link rel="stylesheet" href="../tokens.css">
+<style>
+  /* One row over the docked chat: which chat, what is in front, and Share.
+     The view is exactly this row (34px). Nothing here may draw taller -- a
+     view cannot paint outside its bounds -- so the chat picker is a native
+     <select>, whose list the OS draws outside the view. */
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    display: flex; align-items: center; gap: 6px; padding: 0 6px 0 8px;
+    background: linear-gradient(180deg, var(--rail-hi), var(--bg));
+    border-bottom: 1px solid var(--rule); border-left: 1px solid var(--rule);
+    color: var(--text); font-family: var(--sans); font-size: 12px;
+    user-select: none; overflow: hidden; white-space: nowrap;
+  }
+  select, button {
+    font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--rule);
+    border-radius: 6px; height: 24px; padding: 0 8px; cursor: pointer;
+  }
+  select:hover, button:hover { background: var(--panel-2); }
+  button:focus-visible, select:focus-visible { outline: 1px solid var(--ready); outline-offset: 1px; }
+  .front { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--dim); }
+  .front b { color: var(--text); font-weight: 500; }
+  .front.stale::before { content: "● "; color: var(--ready); }
+  #share { border-color: var(--ready); color: var(--ready); font-weight: 600; }
+  #share:disabled { opacity: 0.55; cursor: progress; }
+  .k { font-family: var(--mono); font-size: 10px; color: var(--faint); margin-left: 4px; }
+  .tool { width: 24px; padding: 0; color: var(--dim); }
+  .front.err { color: var(--bad); }
+  @media (max-width: 420px) { .k, #narrow, #wider { display: none; } }
+</style>
+</head>
+<body>
+  <select id="chat" title="Which chat sits here"></select>
+  <div class="front" id="front">Nothing in front</div>
+  <button id="share" title="Put the page in front into the chat's box, ready for your question (Ctrl+J). Nothing is sent until you press Enter.">Share page<span class="k">Ctrl+J</span></button>
+  <button class="tool" id="narrow" title="Narrower">−</button>
+  <button class="tool" id="wider" title="Wider">+</button>
+  <button class="tool" id="reload" title="Reload the chat">↻</button>
+  <button class="tool" id="close" title="Close Beside (the conversation is kept)">✕</button>
+<script>
+  const $ = (id) => document.getElementById(id);
+  let state = null;
+
+  function draw(s) {
+    state = s;
+    const sel = $("chat");
+    const want = (s.chats || []).map((c) => c.id).join(",");
+    if (sel.dataset.ids !== want) {
+      sel.innerHTML = "";
+      for (const c of s.chats || []) { const o = document.createElement("option"); o.value = c.id; o.textContent = c.name; sel.appendChild(o); }
+      sel.dataset.ids = want;
+    }
+    if (s.chat) sel.value = s.chat.id;
+
+    const f = $("front");
+    f.className = "front";
+    if (s.sharing) { f.textContent = "Reading the page…"; }
+    else if (s.note && s.note.error) { f.classList.add("err"); f.textContent = s.note.error; f.title = s.note.error; }
+    else if (s.front) {
+      const name = s.front.title || s.front.url || s.front.app;
+      const shared = s.shared && s.shared.url === s.front.url;
+      // A dot when the page in front is not the one the chat last saw.
+      if (!shared) f.classList.add("stale");
+      f.innerHTML = "";
+      const b = document.createElement("b");
+      b.textContent = name;
+      f.append(shared ? "In the chat: " : "In front: ", b);
+      if (shared && s.shared.cut) f.append(" (cut to fit)");
+      f.title = `${s.front.app}: ${s.front.url}` + (shared ? `\nShared ${s.shared.chars.toLocaleString()} characters` : "\nNot shared yet: Ctrl+J");
+    } else { f.textContent = "Nothing in front"; f.title = ""; }
+    $("share").disabled = !!s.sharing || !s.front;
+  }
+
+  $("chat").onchange = async (e) => draw(await roostBeside.chat(e.target.value));
+  $("share").onclick = async () => { $("share").disabled = true; await roostBeside.share(); };
+  $("narrow").onclick = async () => draw(await roostBeside.width(-60));
+  $("wider").onclick = async () => draw(await roostBeside.width(60));
+  $("reload").onclick = async () => draw(await roostBeside.reload());
+  $("close").onclick = () => roostBeside.close();
+  roostBeside.onState(draw);
+  roostBeside.state().then(draw);
+</script>
+</body>
+</html>

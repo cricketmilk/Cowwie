@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Ifreglen</title>
+<link rel="stylesheet" href="../tokens.css">
+<style>
+  /* Home is a painting with doors in it. The art (art/sanctum.jpg) is the
+     page; the eight signposts painted on it are the navigation. This file
+     adds where each sign is, what it opens, a lamp saying whether the app
+     behind it is alive, and the SELECTED state: the plank lights up and
+     sparks fly off its arrow, the way the painter lit one sign. The painted
+     title and sign names are baked into the art for now; a text-free version
+     of the painting lets this page draw them. The old tile page is kept as
+     legacy.html until its desk notes find a home. */
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; overflow: hidden; }
+  body {
+    background: #07060C;          /* the painting's sky, so the letterbox is part of it */
+    color: var(--text); font-family: var(--sans);
+    -webkit-font-smoothing: antialiased; user-select: none;
+  }
+
+  /* The frame keeps the painting's aspect (2000x1493) and centres it, so the
+     hotspots, which are percentages of the frame, land on the painted signs
+     at every window size. */
+  .stage { position: absolute; inset: 0; display: grid; place-items: center; }
+  .frame {
+    position: relative; aspect-ratio: 2000 / 1493;
+    width: min(100vw, calc(100vh * 2000 / 1493)); height: auto;
+  }
+  .frame img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .edge {
+    position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(60% 70% at 50% 50%, transparent 60%, rgba(0,0,0,0.5) 100%);
+  }
+
+  /* ---------------------------------------------------------------- signs */
+  .sign {
+    position: absolute; cursor: pointer; border: 0; padding: 0; background: none;
+    outline: none; -webkit-appearance: none; overflow: visible;
+  }
+  /* The plank's arrow shape, as a clip on the glow layer only, so the sparks
+     outside the plank are not cut off. Left-post planks point right. */
+  .sign .glow {
+    position: absolute; inset: 0; opacity: 0;
+    clip-path: polygon(0 0, 88% 0, 100% 50%, 88% 100%, 0 100%);
+    background:
+      radial-gradient(70% 90% at 50% 50%, rgba(255,214,140,0.62), rgba(255,170,80,0.22) 60%, transparent 100%);
+    mix-blend-mode: screen; transition: opacity 160ms ease-out;
+  }
+  .sign.left .glow { clip-path: polygon(12% 0, 100% 0, 100% 100%, 12% 100%, 0 50%); }
+  /* A warm rim just outside the plank, so the glow reads as light on the
+     post and the grass, not only as a brighter plank. */
+  .sign .halo {
+    position: absolute; inset: -18% -6%; opacity: 0; pointer-events: none;
+    background: radial-gradient(55% 60% at 50% 50%, rgba(255,180,90,0.35), transparent 70%);
+    mix-blend-mode: screen; transition: opacity 220ms ease-out;
+  }
+  .sign:hover .glow, .sign:focus-visible .glow { opacity: 0.55; }
+  .sign:hover .halo, .sign:focus-visible .halo { opacity: 0.5; }
+  .sign.selected .glow { opacity: 1; }
+  .sign.selected .halo { opacity: 1; }
+  .sign:active .glow { opacity: 1; transition: none; }
+  .sign .name { position: absolute; left: -9999px; }   /* painted already; for readers */
+
+  /* The sparks: short tapered strokes and two stars flung off the arrow tip,
+     in the painter's own orange. Hidden until the sign is selected, then
+     they pop out and keep a slow flicker. */
+  .sparks {
+    position: absolute; top: -45%; width: 58%; height: 190%;
+    opacity: 0; pointer-events: none; overflow: visible;
+    transform-origin: 0 50%;
+  }
+  .sign:not(.left) .sparks { left: 92%; }
+  .sign.left .sparks { right: 92%; transform: scaleX(-1); transform-origin: 100% 50%; }
+  .sign.selected .sparks { opacity: 1; animation: pop 360ms cubic-bezier(.2,1.6,.4,1) both; }
+  .sign.left.selected .sparks { animation-name: popL; }
+  .sparks path, .sparks polygon {
+    fill: #FFB24A; stroke: #FFD58A; stroke-width: 0.6; stroke-linejoin: round;
+    filter: drop-shadow(0 0 3px rgba(255,170,70,0.9));
+  }
+  .sparks .s1 { animation: flick 1.9s ease-in-out infinite; }
+  .sparks .s2 { animation: flick 2.3s ease-in-out infinite 0.4s; }
+  .sparks .s3 { animation: flick 1.6s ease-in-out infinite 0.9s; }
+  @keyframes pop  { from { transform: scale(0.2); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  @keyframes popL { from { transform: scaleX(-0.2) scaleY(0.2); opacity: 0; } to { transform: scaleX(-1) scaleY(1); opacity: 1; } }
+  @keyframes flick { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+
+  /* The lamp: a little ember at the plank's arrow tip. */
+  .lamp {
+    position: absolute; width: 1.1%; aspect-ratio: 1; border-radius: 50%;
+    background: #3A3240; opacity: 0; transition: opacity 300ms; pointer-events: none;
+  }
+  .lamp.open { opacity: 1; background: #8E8692; }
+  .lamp.running { opacity: 1; background: var(--emerald); box-shadow: 0 0 10px rgba(127,214,168,0.7); }
+  .lamp.active { opacity: 1; background: #FFB65C; box-shadow: 0 0 12px rgba(255,182,92,0.9); }
+
+  /* ------------------------------------------------------------------ hud */
+  .hud {
+    position: absolute; left: 1.6%; bottom: 1.4%; z-index: 2;
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em;
+    color: rgba(230,220,200,0.55); text-shadow: 0 1px 2px #000;
+    display: flex; gap: 14px; align-items: baseline; pointer-events: none;
+  }
+  .hud .overline { text-transform: uppercase; letter-spacing: 0.3em; font-size: 9px; color: rgba(230,220,200,0.35); }
+  .hud b { font-weight: 500; color: rgba(255,214,150,0.85); font-size: 13px; letter-spacing: 0.04em; }
+  .toast {
+    position: absolute; left: 50%; bottom: 3%; transform: translateX(-50%);
+    font-family: var(--mono); font-size: 12px; color: #FFD69A;
+    background: rgba(8,6,12,0.82); border: 1px solid rgba(255,182,92,0.35);
+    padding: 6px 12px; border-radius: 4px; opacity: 0; transition: opacity 200ms;
+    pointer-events: none;
+  }
+  .toast.on { opacity: 1; }
+  @media (prefers-reduced-motion: reduce) {
+    .sign .glow, .sign .halo, .lamp, .toast { transition: none; }
+    .sign.selected .sparks, .sparks .s1, .sparks .s2, .sparks .s3 { animation: none; }
+  }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="frame" id="frame">
+    <img src="art/sanctum.jpg" alt="Ifreglen: a signpost farm at night. Signs lead to each app." draggable="false">
+    <div class="edge"></div>
+  </div>
+</div>
+<div class="hud"><span class="overline">Ifreglen</span><b id="clock">--:--</b><span id="date"></span><span id="hint"></span></div>
+<div class="toast" id="toast"></div>
+
+<!-- The spark burst, drawn once and cloned per sign. Coordinates are in a
+     100x100 box whose left edge sits at the arrow tip. -->
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <g id="burst">
+      <path class="s1" d="M4 50 L34 46 L34 54 Z"/>
+      <path class="s2" d="M8 30 L36 14 L39 21 Z"/>
+      <path class="s2" d="M8 70 L36 86 L39 79 Z"/>
+      <path class="s3" d="M14 40 L40 34 L41 39 Z"/>
+      <path class="s3" d="M14 60 L40 66 L41 61 Z"/>
+      <polygon class="s1" points="52,8 55,16 63,17 57,22 59,30 52,25 45,30 47,22 41,17 49,16"/>
+      <polygon class="s3" points="50,78 52,84 58,85 54,89 55,95 50,91 45,95 46,89 42,85 48,84"/>
+    </g>
+  </defs>
+</svg>
+
+<script>
+// Where each painted sign sits, as percentages of the painting, and what it
+// opens. Measured off art/sanctum.jpg (2000x1493); re-measure if the art
+// changes. `side` is which post the plank hangs on.
+const SIGNS = [
+  { id: "launcher",    label: "Home",        side: "right", x: 5.5,  y: 26.0, w: 26.0, h: 11.5 },
+  { id: "roam",        label: "Wilds",       side: "right", x: 5.5,  y: 38.5, w: 27.0, h: 9.5  },
+  { id: "lookout",     label: "Lookout",     side: "right", x: 5.0,  y: 49.5, w: 25.5, h: 10.5 },
+  { id: "credentials", label: "Credentials", side: "right", x: 5.5,  y: 60.5, w: 29.5, h: 10.5 },
+  { id: "onboarding",  label: "Onboarding",  side: "left",  x: 69.5, y: 39.5, w: 27.0, h: 10.5 },
+  { id: "trove",       label: "Trove",       side: "left",  x: 70.0, y: 51.0, w: 26.0, h: 9.5  },
+  { id: "forge",       label: "Kenoma",      side: "left",  x: 70.0, y: 61.5, w: 26.0, h: 9.0  },
+  { id: "haruspex",    label: "Haruspex",    side: "left",  x: 69.5, y: 71.5, w: 27.0, h: 9.0  },
+];
+
+const frame = document.getElementById("frame");
+const hasApps = !!(window.roost && window.roost.apps);
+const store = window.roost && window.roost.store;
+const mine = window.roost ? window.roost.app : "launcher";
+
+for (const s of SIGNS) {
+  const b = document.createElement("button");
+  b.className = `sign ${s.side}`;
+  b.dataset.id = s.id;
+  b.style.cssText = `left:${s.x}%;top:${s.y}%;width:${s.w}%;height:${s.h}%`;
+  b.title = s.label;
+  b.innerHTML = `<span class="halo"></span><span class="glow"></span><span class="name">${s.label}</span>` +
+    `<svg class="sparks" viewBox="0 0 100 100" preserveAspectRatio="none"><use href="#burst"/></svg>`;
+  b.addEventListener("click", () => choose(s));
+  frame.appendChild(b);
+  const lamp = document.createElement("i");
+  lamp.className = "lamp"; lamp.id = `lamp-${s.id}`;
+  const cx = s.side === "right" ? s.x + s.w + 0.4 : s.x - 1.5;
+  lamp.style.cssText = `left:${cx}%;top:${s.y + s.h / 2 - 0.55}%`;
+  frame.appendChild(lamp);
+}
+
+// ------------------------------------------------------------- selection
+// One sign is "selected" at a time: lit, with sparks. It is the sign you are
+// standing at. On this page that is Home until you pick another, which
+// lights that sign for the moment before it opens; when you come back, the
+// sign you came from stays lit, so Home remembers where you were.
+let selected = null;
+function select(id, { remember = true } = {}) {
+  selected = id;
+  for (const b of frame.querySelectorAll(".sign")) b.classList.toggle("selected", b.dataset.id === id);
+  if (remember && store) store.set("home:selected", id).catch?.(() => {});
+}
+
+function choose(s) {
+  select(s.id);
+  if (s.id === mine) { toast("You are here."); return; }
+  if (!hasApps) { toast(`${s.label}: open me inside Ifreglen to go there`); return; }
+  // Let the sparks pop before the view switches; it is the whole point.
+  setTimeout(() => window.roost.apps.open(s.id), 220);
+  setTimeout(refresh, 600);
+}
+
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("on");
+  clearTimeout(toast.timer); toast.timer = setTimeout(() => t.classList.remove("on"), 1800);
+}
+
+// -------------------------------------------------------------- the lamps
+let seq = 0;
+async function refresh() {
+  if (!hasApps) return;
+  const my = ++seq;
+  let r;
+  try { r = await window.roost.apps.list(); } catch { return; }
+  if (my !== seq || !r || !Array.isArray(r.apps)) return;
+  const byId = new Map(r.apps.map((a) => [a.id, a]));
+  for (const s of SIGNS) {
+    const a = byId.get(s.id);
+    const lamp = document.getElementById(`lamp-${s.id}`);
+    lamp.className = "lamp";
+    if (!a) continue;
+    if (a.active && a.id !== mine) lamp.classList.add("active");
+    else if (a.running) lamp.classList.add("running");
+    else if (a.open) lamp.classList.add("open");
+  }
+}
+
+// ------------------------------------------------------------------ clock
+function paintClock() {
+  const now = new Date();
+  document.getElementById("clock").textContent = now.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  document.getElementById("date").textContent = now.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
+}
+paintClock();
+setInterval(paintClock, 30000);
+document.getElementById("hint").textContent = hasApps ? "ctrl+1…9 jumps · ctrl+k finds" : "";
+
+// Keyboard: arrows walk the posts and move the selection; Enter opens.
+document.addEventListener("keydown", (e) => {
+  const all = [...frame.querySelectorAll(".sign")];
+  if (["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight"].includes(e.key)) {
+    let i = all.findIndex((b) => b.dataset.id === selected);
+    if (i < 0) i = 0;
+    if (e.key === "ArrowDown") i = (i + 1) % all.length;
+    if (e.key === "ArrowUp") i = (i - 1 + all.length) % all.length;
+    if (e.key === "ArrowRight" || e.key === "ArrowLeft") i = (i + 4) % all.length;  // hop posts
+    select(all[i].dataset.id, { remember: false });
+    all[i].focus();
+    e.preventDefault();
+  } else if (e.key === "Enter" && selected) {
+    const s = SIGNS.find((x) => x.id === selected);
+    if (s) choose(s);
+  }
+});
+// Hovering previews the sparks on that sign without forgetting the real one.
+frame.addEventListener("mouseover", (e) => {
+  const b = e.target.closest(".sign"); if (!b) return;
+  for (const o of frame.querySelectorAll(".sign")) o.classList.toggle("selected", o === b);
+});
+frame.addEventListener("mouseleave", () => select(selected, { remember: false }));
+
+(async () => {
+  let last = null;
+  if (store) { try { last = await store.get("home:selected"); } catch {} }
+  select(SIGNS.some((s) => s.id === last) ? last : mine, { remember: false });
+  if (hasApps) {
+    refresh();
+    setInterval(() => { if (!document.hidden) refresh(); }, 4000);
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
+  }
+})();
+</script>
+</body>
+</html>

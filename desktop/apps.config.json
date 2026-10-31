@@ -1,0 +1,188 @@
+{
+  "$comment": [
+    "Ifreglen's app registry. Adding an app is an entry here, not a code change.",
+    "",
+    "kind:",
+    "  external  a website on the open internet",
+    "  local     spawn a command, wait for its port, then load it",
+    "  static    load a local index.html straight off disk",
+    "  browser   The Wilds, the in-shell browser (one entry, id roam)",
+    "",
+    "capabilities: what the preload exposes to that app. Anything not listed",
+    "  is simply absent from window.roost. Keep these minimal.",
+    "    store    key/value persistence scoped to this app",
+    "    fs       read/write inside this app's own data folder (needs `root`)",
+    "    shell    open external links in the system browser",
+    "    apps     see/open/stop/restart other registered apps — the launcher only.",
+    "             Never grant this to an external app.",
+    "    bus      publish/subscribe between apps, plus the shell's own system",
+    "             events (app.started/stopped/exited). Publishing `briefs.file`",
+    "             files a brief for the phone (lib/briefs.js). Stripped from",
+    "             external apps in code — a remote page must neither drive nor",
+    "             eavesdrop.",
+    "    clip     SHELL-SIDE ONLY. Exposes nothing to the page; tells the shell",
+    "             to offer clip verbs in its right-click menu and to file that",
+    "             app's downloads into the Trove. Deliberately NOT stripped from",
+    "             external apps — external sites are where clipping happens.",
+    "",
+    "  liveReload: optional. Defaults on for static apps, off for local (the",
+    "    dev server pushes its own updates). Never applies to external.",
+    "",
+    "persona: which browser session to use. Apps sharing a persona share",
+    "  cookies, localStorage and logins; different personas are fully isolated.",
+    "",
+    "Paths and cwds may be relative to this desktop folder or absolute, and may",
+    "carry ${ROOST}/${SHELL}/${HOME} placeholders (lib/roots.js). Ifreglen's own",
+    "apps live IN this repo under ${SHELL}/apps; Kenoma and Haruspex are outside",
+    "projects beside ${ROOST}."
+  ],
+  "defaultApp": "launcher",
+  "apps": [
+    {
+      "id": "launcher",
+      "name": "Ifreglen",
+      "kind": "static",
+      "path": "renderer/lounge/index.html",
+      "capabilities": [
+        "store",
+        "apps",
+        "bus"
+      ],
+      "persona": "workshop",
+      "note": "Home screen. The 'apps' capability powers its launch tiles."
+    },
+    {
+      "id": "roam",
+      "name": "The Wilds",
+      "kind": "browser",
+      "capabilities": [
+        "clip"
+      ],
+      "persona": "roam",
+      "search": "https://duckduckgo.com/?q=%s",
+      "history": true,
+      "pins": [
+        {
+          "url": "https://gemini.google.com/app",
+          "title": "Gemini",
+          "persona": "curio"
+        }
+      ],
+      "note": "The open web, inside the shell. Tabs are ordinary WebContentsViews built as kind 'external', so a page here gets the same stripped capabilities as any remote site and the same right-click clip verbs. Each tab names the persona whose cookie jar it browses in. 'search' is the omnibox template (%s is the query) and \"history\": false turns off the address bar's memory without touching the Trove. Pins keep the 'curio' jar, which holds a signed-in chat out of the dev (workshop) and work sessions."
+    },
+    {
+      "id": "lookout",
+      "name": "Lookout",
+      "kind": "local",
+      "command": "node server.js",
+      "cwd": "${SHELL}/apps/lookout",
+      "url": "http://127.0.0.1:8812",
+      "capabilities": [
+        "store",
+        "bus",
+        "clip"
+      ],
+      "persona": "work",
+      "note": "Monitoring and research bot (the old Kornbot, rebuilt). Files briefs for the phone through POST /briefs on the bridge, or briefs.file on the bus."
+    },
+    {
+      "id": "credentials",
+      "name": "Credentials",
+      "kind": "static",
+      "path": "apps/credentials/index.html",
+      "root": "${SHELL}/data/apps/credentials",
+      "capabilities": [
+        "store",
+        "fs",
+        "bus",
+        "clip"
+      ],
+      "persona": "work",
+      "note": "Licences, certifications and renewals. Its data lives under data/apps/credentials (the fs root); a renewal coming due is a brief on the bus (briefs.file)."
+    },
+    {
+      "id": "onboarding",
+      "name": "Onboarding",
+      "kind": "static",
+      "path": "apps/onboarding/index.html",
+      "root": "${SHELL}/data/apps/onboarding",
+      "capabilities": [
+        "store",
+        "fs",
+        "bus",
+        "clip"
+      ],
+      "persona": "work",
+      "note": "New-hire checklists and paperwork. Its data lives under data/apps/onboarding (the fs root); a starter waiting on a step is a brief on the bus (briefs.file)."
+    },
+    {
+      "id": "drafts",
+      "name": "Drafts",
+      "kind": "local",
+      "command": "node server.js",
+      "cwd": "${SHELL}/apps/drafts",
+      "url": "http://127.0.0.1:8815",
+      "capabilities": [
+        "store",
+        "clip"
+      ],
+      "persona": "work",
+      "note": "Letters and emails from templates, drafted by Kenoma when it is up (falls back to the plain template). Nothing is sent from here; you copy it into your mail."
+    },
+    {
+      "id": "haruspex",
+      "name": "Haruspex",
+      "kind": "local",
+      "capabilities": [
+        "store",
+        "bus",
+        "shell"
+      ],
+      "persona": "workshop",
+      "command": "python -m haruspex serve",
+      "cwd": "${ROOST}/haruspex",
+      "url": "http://127.0.0.1:8795",
+      "health": {
+        "endpoint": "/api/status",
+        "check": {
+          "app": "Haruspex"
+        }
+      },
+      "startWithShell": true,
+      "root": "${ROOST}/haruspex",
+      "platforms": [
+        "win32"
+      ],
+      "note": "Antivirus + network security suite. Python HTTP dashboard on :8795. Publishes haruspex.* events on the bus when threats are found; also runs Egress Guard on :8789 (auto-starts with shield) to proxy and mask all browser traffic through threat-sinkholing + optional upstream SOCKS5 tunnel. Starts with the shell so the Wilds' proxy is there from boot; the shell's ',direct://' failover keeps pages loading if it is not. The shell is its only supervisor here: Haruspex skips its own watchdog when XIXOXIS_SHELL is set (the shell sets both that and IFREGLEN_SHELL), and binds its ports exclusively, so a second copy exits instead of piling up (2026-10-13)."
+    },
+    {
+      "id": "trove",
+      "name": "The Trove",
+      "kind": "static",
+      "path": "renderer/trove/index.html",
+      "root": "data/trove",
+      "capabilities": [
+        "fs",
+        "store",
+        "bus",
+        "apps"
+      ],
+      "persona": "workshop",
+      "note": "Everything you explicitly clipped, with where it came from. Content-addressed blobs plus an append-only index.jsonl — the archive is evidence, so lines are added and never rewritten. ScopedFs confines 'fs' to data/trove. 'bus' means it needs no poll: clip.added reaches it directly. Its Apps tab (data/trove/apps.json, seeded at boot) carries the Professional Goat install and pair codes."
+    },
+    {
+      "id": "forge",
+      "name": "Kenoma",
+      "kind": "local",
+      "command": "node server.js",
+      "cwd": "${ROOST}/Forge",
+      "url": "http://localhost:8890",
+      "capabilities": [
+        "shell"
+      ],
+      "persona": "workshop",
+      "art": "art/kenoma.png",
+      "note": "Coding agent — plug any LLM API, dictate a task, watch it read/edit/run/verify live. Auri's drawer drives the same backend via lib/forge.js; its approvals reach her cards."
+    }
+  ]
+}
