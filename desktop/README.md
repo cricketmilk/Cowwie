@@ -37,7 +37,7 @@ overrides for one run, and the old `XIXOXIS_*` names are still read).
 
 | id | name | kind | where |
 |---|---|---|---|
-| `launcher` | Ifreglen | static | `renderer/lounge` — the home screen: the painting with the signposts |
+| `launcher` | Ifreglen | static | `renderer/lounge` — the home screen: the painting with the signposts. Arrows/WASD or a controller walk them, Enter opens, M mutes |
 | `roam` | The Wilds | browser | the open web, in-shell; tabs per cookie jar |
 | `lookout` | Lookout | local | `apps/lookout`, `node server.js` → :8812 |
 | `credentials` | Credentials | static | `apps/credentials/index.html`, fs root `data/apps/credentials` |

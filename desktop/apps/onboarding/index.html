@@ -4,29 +4,14 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Onboarding</title>
+<link rel="stylesheet" href="../_shared/ifreglen-ui.css">
+<script src="../_shared/ifreglen-ui.js" defer></script>
 <style>
-  :root {
-    --bg: #080A10; --panel: #11141D; --panel-2: #171B27; --rule: #242A3B;
-    --text: #D8D4C8; --dim: #7C8391; --faint: #576072;
-    --accent: #7FB7D6; --ok: #7FD6A8; --warn: #D9A15B; --bad: #D98B7A; --hot: #E07070;
-    --mono: ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
-    --sans: ui-sans-serif, system-ui, "Segoe UI", sans-serif;
-  }
-  * { box-sizing: border-box; }
-  html, body { height: 100%; margin: 0; }
-  body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; line-height: 1.5; display: grid; overflow: hidden;
+  /* Layout only. Colour, type, planks, buttons and motion come from the kit. */
+  .bar { grid-area: bar; }
+
+  body { display: grid; overflow: hidden;
     grid-template-columns: 1fr 360px; grid-template-rows: auto 1fr; grid-template-areas: "bar bar" "board side"; }
-  .bar { grid-area: bar; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; padding: 8px 18px; min-height: 54px; background: var(--panel); border-bottom: 1px solid var(--rule); }
-  .logo { font-family: var(--mono); font-weight: 700; letter-spacing: 3px; font-size: 15px; color: var(--accent); }
-  .logo small { color: var(--faint); font-weight: 400; letter-spacing: 1px; margin-left: 10px; }
-  .status { font-family: var(--mono); font-size: 11px; color: var(--dim); }
-  .spacer { flex: 1; }
-  button, .btn { background: var(--panel-2); color: var(--text); border: 1px solid var(--rule); padding: 6px 12px; border-radius: 4px; font: inherit; font-size: 12.5px; cursor: pointer; }
-  button:hover { border-color: var(--accent); color: var(--accent); }
-  button.primary { background: rgba(127,183,214,.12); border-color: var(--accent); color: var(--accent); }
-  button.danger { border-color: var(--bad); color: var(--bad); }
-  button.sm { padding: 3px 9px; font-size: 11.5px; }
-  .overline { font-family: var(--mono); font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--dim); }
   .board { grid-area: board; overflow: auto; padding: 14px 16px; display: flex; gap: 10px; align-items: flex-start; }
   .col { min-width: 215px; width: 215px; background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; display: flex; flex-direction: column; max-height: 100%; flex-shrink: 0; }
   .col.over { border-color: var(--accent); background: var(--panel-2); }
@@ -35,7 +20,6 @@
   .col .head .n { font-family: var(--mono); font-size: 11px; color: var(--faint); }
   .col .cards { padding: 8px; overflow-y: auto; min-height: 60px; flex: 1; }
   .hire { background: var(--panel-2); border: 1px solid var(--rule); border-radius: 5px; padding: 8px 10px; margin-bottom: 8px; cursor: grab; }
-  .hire:hover { border-color: var(--accent); }
   .hire.sel { box-shadow: inset 3px 0 0 var(--accent); }
   .hire.dragging { opacity: .4; }
   .hire .n { font-weight: 600; font-size: 13px; }
@@ -48,30 +32,14 @@
   .prog { height: 3px; background: var(--rule); border-radius: 2px; margin-top: 7px; overflow: hidden; }
   .prog div { height: 100%; background: var(--accent); }
   .side { grid-area: side; background: var(--panel); border-left: 1px solid var(--rule); display: flex; flex-direction: column; overflow: hidden; }
-  .tabs { display: flex; border-bottom: 1px solid var(--rule); }
-  .tabs button { flex: 1; background: none; border: none; border-radius: 0; color: var(--dim); font-family: var(--mono); font-size: 11px; letter-spacing: 1px; text-transform: uppercase; padding: 11px 0; border-bottom: 2px solid transparent; }
-  .tabs button.active { color: var(--accent); border-bottom-color: var(--accent); }
-  .panel { padding: 14px; overflow-y: auto; flex: 1; }
-  .field { margin-bottom: 10px; }
-  .field .lbl { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--faint); margin-bottom: 3px; }
-  input, select, textarea { width: 100%; padding: 7px 9px; border-radius: 4px; border: 1px solid var(--rule); background: var(--panel-2); color: var(--text); font: inherit; font-size: 13px; }
-  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
   textarea { min-height: 70px; resize: vertical; }
-  .row { display: flex; gap: 10px; } .row .field { flex: 1; }
-  .acts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
   .task { display: grid; grid-template-columns: 18px 1fr auto; gap: 8px; align-items: start; padding: 6px 0; border-bottom: 1px solid var(--rule); font-size: 13px; }
   .task input[type=checkbox] { width: auto; margin: 3px 0 0; }
   .task.done .t { color: var(--faint); text-decoration: line-through; }
   .task .d { font-family: var(--mono); font-size: 10.5px; color: var(--dim); }
   .task input[type=date] { padding: 2px 4px; font-size: 11px; width: 125px; }
-  .empty { text-align: center; padding: 30px 16px; color: var(--faint); }
-  .empty .glyph { font-family: var(--mono); font-size: 26px; margin-bottom: 8px; }
-  pre.draft { font-family: var(--mono); font-size: 12px; white-space: pre-wrap; background: var(--bg); border: 1px solid var(--rule); border-radius: 4px; padding: 10px; max-height: 40vh; overflow: auto; }
   .blk { background: var(--panel-2); border: 1px solid var(--rule); border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; cursor: pointer; }
-  .blk:hover { border-color: var(--accent); }
   .blk .n { font-weight: 600; } .blk .m { font-size: 12px; color: var(--bad); }
-  .toast { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); background: var(--panel-2); border: 1px solid var(--accent); padding: 8px 14px; border-radius: 4px; font-size: 12.5px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 50; }
-  .toast.show { opacity: 1; }
   label.tgl { font-size: 12px; color: var(--dim); display: flex; align-items: center; gap: 6px; cursor: pointer; }
   label.tgl input { width: auto; }
   @media (max-width: 900px) { body { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; grid-template-areas: "bar" "board" "side"; } .side { max-height: 45vh; border-left: 0; border-top: 1px solid var(--rule); } }
@@ -79,7 +47,7 @@
 </head>
 <body>
 <div class="bar">
-  <div class="logo">ONBOARDING<small>ifreglen · new-hire pipeline</small></div>
+  <div class="logo">Onboarding<small>new-hire pipeline</small></div>
   <div class="status" id="status"></div>
   <div class="spacer"></div>
   <label class="tgl" title="On open, file a brief for anything overdue"><input type="checkbox" id="autoBrief"> auto-brief overdue on open</label>
@@ -88,10 +56,10 @@
   <button id="btnExportCsv">Export CSV</button>
   <button id="btnExportJson">Export JSON</button>
 </div>
-<div class="board" id="board"></div>
+<div class="board" id="board" data-stagger></div>
 <div class="side">
   <div class="tabs"><button class="active" data-tab="hire">Hire</button><button data-tab="blocked">Blocked</button><button data-tab="tools">Tools</button></div>
-  <div class="panel" id="side"></div>
+  <div class="panel" id="side" data-stagger></div>
 </div>
 <div class="toast" id="toast"></div>
 

@@ -283,10 +283,13 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ...d, error });
     }
     // Static: the page itself. data/ is never served.
+    // /_ifreglen/* is the shared UI kit in apps/_shared (the look of every app).
     let f = url.pathname === "/" ? "/index.html" : url.pathname;
     if (f.startsWith("/data/") || f.includes("..")) { res.writeHead(404); return res.end("no"); }
-    const file = path.join(HERE, f);
-    if (!file.startsWith(HERE) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); return res.end("no"); }
+    const shared = f.startsWith("/_ifreglen/");
+    const base = shared ? path.join(HERE, "..", "_shared") : HERE;
+    const file = path.join(base, shared ? f.slice("/_ifreglen/".length) : f);
+    if (!file.startsWith(base) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); return res.end("no"); }
     res.writeHead(200, { "content-type": MIME[path.extname(file)] || "application/octet-stream" });
     fs.createReadStream(file).pipe(res);
   } catch (e) {

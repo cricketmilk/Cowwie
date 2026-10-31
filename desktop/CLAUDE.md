@@ -27,7 +27,7 @@ and may lag the registry.
 desktop/             the shell. Electron main, preloads, renderer, lib/, apps/
   apps.config.json     the registry — one entry per app
   main.js              main process: windows, capabilities, The Wilds, herald, bridge wiring
-  apps/                Lookout, Credentials, Onboarding, Drafts
+  apps/                Lookout, Credentials, Onboarding, Drafts; _shared/ is the UI kit they all load
   renderer/lounge      the home screen: art/sanctum.jpg with the signposts as hotspots (legacy.html is the old tile page)
   renderer/herald      Auri's cards — approvals, questions, crashes, briefs, notes
   renderer/roam        The Wilds — the browser's own bar and its blank page
@@ -301,3 +301,19 @@ unpacked extensions. OneDrive-redirected Desktop, so never hardcode
 
 Comments explain *why*, especially where a choice looks wrong without context
 (JSONL over SQLite, capability stripping, no native modules). Keep them.
+
+**The apps share one look, `apps/_shared/ifreglen-ui.{css,js}`.** The kit owns
+colour, type, the plank title bar, buttons, tabs, panels, focus, motion and
+the (off by default) click sounds; an app's own `<style>` holds layout only.
+Static apps link `../_shared/`; Lookout and Drafts serve the same files at
+`/_ifreglen/` from their own servers. Do not copy rules out of the kit into
+an app, and do not fetch fonts: it uses Windows' own faces.
+
+**The home page is the game.** Boot (once per session, `sessionStorage`),
+lantern glow and ember canvas, mouse parallax, a plaque at the foot of the
+painting for the selected sign, an iris-in on open, keyboard, WASD and
+gamepad walking, and a synthesiser for the knocks and bells (on by default,
+`home:sound` in the launcher's store). Sign hotspots are percentages of the
+painting; Drafts has no painted plank, so the page draws one. Sparks are
+styled on the `<defs>` original (`#burst`), never through `.sparks`, because
+a `<use>` clone takes its paint from there.

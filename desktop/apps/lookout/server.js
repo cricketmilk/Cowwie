@@ -541,11 +541,17 @@ async function api(req, res, url) {
   return send(res, 404, { error: "no such route" });
 }
 
+// The shared UI kit (apps/_shared) is served under /_ifreglen/, so the page
+// looks like the rest of Ifreglen without a copy of the stylesheet here.
+const SHARED = path.join(HERE, "..", "_shared");
 function serveStatic(req, res, url) {
   let p = url.pathname === "/" ? "/index.html" : url.pathname;
+  const shared = p.startsWith("/_ifreglen/");
+  if (shared) p = p.slice("/_ifreglen".length);
   p = path.normalize(p).replace(/^(\.\.[/\\])+/, "");
-  const file = path.join(HERE, p);
-  if (!file.startsWith(HERE) || file.startsWith(DATA)) return send(res, 404, { error: "not found" });
+  const base = shared ? SHARED : HERE;
+  const file = path.join(base, p);
+  if (!file.startsWith(base) || file.startsWith(DATA)) return send(res, 404, { error: "not found" });
   fs.readFile(file, (err, buf) => {
     if (err) return send(res, 404, { error: "not found" });
     send(res, 200, buf, MIME[path.extname(file)] || "application/octet-stream");
